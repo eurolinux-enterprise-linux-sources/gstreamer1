@@ -159,7 +159,6 @@ GST_START_TEST (test_class)
   fail_if (klass->elementfactory == NULL);
   fail_if (klass->elementfactory != factory);
 
-  gst_object_unref (factory);
 }
 
 GST_END_TEST;

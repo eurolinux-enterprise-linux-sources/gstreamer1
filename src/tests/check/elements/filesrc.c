@@ -83,7 +83,6 @@ setup_filesrc (void)
 static void
 cleanup_filesrc (GstElement * filesrc)
 {
-  gst_check_drop_buffers ();
   gst_pad_set_active (mysinkpad, FALSE);
   gst_check_teardown_sink_pad (filesrc);
   gst_check_teardown_element (filesrc);

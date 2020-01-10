@@ -318,13 +318,10 @@ gst_ghost_pad_internal_activate_pull_default (GstPad * pad, GstObject * parent,
     GST_LOG_OBJECT (pad, "activating peer");
     ret = gst_pad_activate_mode (other, GST_PAD_MODE_PULL, active);
     gst_object_unref (other);
-  } else if (active) {
+  } else {
     /* this is failure, we can't activate pull if there is no peer */
     GST_LOG_OBJECT (pad, "not src and no peer, failing");
     ret = FALSE;
-  } else {
-    GST_LOG_OBJECT (pad, "deactivating pull, with no peer - allowing");
-    ret = TRUE;
   }
 
   return ret;
@@ -409,13 +406,10 @@ gst_ghost_pad_activate_pull_default (GstPad * pad, GstObject * parent,
     GST_LOG_OBJECT (pad, "activating peer");
     ret = gst_pad_activate_mode (other, GST_PAD_MODE_PULL, active);
     gst_object_unref (other);
-  } else if (active) {
-    /* this is failure, we can't activate pull if there is no peer */
-    GST_LOG_OBJECT (pad, "not src and no peer, failing");
-    ret = FALSE;
   } else {
-    GST_LOG_OBJECT (pad, "deactivating pull, with no peer - allowing");
-    ret = TRUE;
+    /* no peer, we fail */
+    GST_LOG_OBJECT (pad, "pad not src and no peer, failing");
+    ret = FALSE;
   }
 
   return ret;
@@ -539,7 +533,8 @@ gst_ghost_pad_construct (GstGhostPad * gpad)
   GstPad *pad, *internal;
 
   g_return_val_if_fail (GST_IS_GHOST_PAD (gpad), FALSE);
-  g_return_val_if_fail (!GST_GHOST_PAD_PRIVATE (gpad)->constructed, FALSE);
+  g_return_val_if_fail (GST_GHOST_PAD_PRIVATE (gpad)->constructed == FALSE,
+      FALSE);
 
   g_object_get (gpad, "direction", &dir, "template", &templ, NULL);
 
@@ -819,7 +814,7 @@ gst_ghost_pad_get_target (GstGhostPad * gpad)
  * is unlinked and links to the new target are established. if @newtarget is
  * %NULL the target will be cleared.
  *
- * Returns: %TRUE if the new target could be set. This function
+ * Returns: (transfer full): %TRUE if the new target could be set. This function
  *     can return %FALSE when the internal pads could not be linked.
  */
 gboolean

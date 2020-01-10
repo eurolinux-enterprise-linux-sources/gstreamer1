@@ -27,6 +27,5 @@
 #include <gst/net/gstnetclientclock.h>
 #include <gst/net/gstnettimepacket.h>
 #include <gst/net/gstnettimeprovider.h>
-#include <gst/net/gstptpclock.h>
 
 #endif /* __GST_NET__H__ */

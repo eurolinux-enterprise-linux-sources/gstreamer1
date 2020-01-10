@@ -23,9 +23,6 @@
 #ifndef __GST_META_H__
 #define __GST_META_H__
 
-#include <glib.h>
-#include <gst/gstbuffer.h>
-
 G_BEGIN_DECLS
 
 typedef struct _GstMeta GstMeta;

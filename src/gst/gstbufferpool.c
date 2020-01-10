@@ -80,12 +80,6 @@
 
 #include "gstbufferpool.h"
 
-#ifdef G_OS_WIN32
-#  ifndef EWOULDBLOCK
-#  define EWOULDBLOCK EAGAIN    /* This is just to placate gcc */
-#  endif
-#endif /* G_OS_WIN32 */
-
 GST_DEBUG_CATEGORY_STATIC (gst_buffer_pool_debug);
 #define GST_CAT_DEFAULT gst_buffer_pool_debug
 
@@ -176,9 +170,9 @@ gst_buffer_pool_init (GstBufferPool * pool)
   gst_allocation_params_init (&priv->params);
   gst_buffer_pool_config_set_allocator (priv->config, priv->allocator,
       &priv->params);
-  /* 1 control write for flushing - the flush token */
+  /* 1 control write for flushing */
   gst_poll_write_control (priv->poll);
-  /* 1 control write for marking that we are not waiting for poll - the wait token */
+  /* 1 control write for marking that we are not waiting for poll */
   gst_poll_write_control (priv->poll);
 
   GST_DEBUG_OBJECT (pool, "created");
@@ -193,7 +187,7 @@ gst_buffer_pool_finalize (GObject * object)
   pool = GST_BUFFER_POOL_CAST (object);
   priv = pool->priv;
 
-  GST_DEBUG_OBJECT (pool, "%p finalize", pool);
+  GST_DEBUG_OBJECT (pool, "finalize");
 
   gst_buffer_pool_set_active (pool, FALSE);
   gst_atomic_queue_unref (priv->queue);
@@ -242,8 +236,10 @@ default_alloc_buffer (GstBufferPool * pool, GstBuffer ** buffer,
 static gboolean
 mark_meta_pooled (GstBuffer * buffer, GstMeta ** meta, gpointer user_data)
 {
-  GST_DEBUG_OBJECT (GST_BUFFER_POOL (user_data),
-      "marking meta %p as POOLED in buffer %p", *meta, buffer);
+  GstBufferPool *pool = user_data;
+
+  GST_DEBUG_OBJECT (pool, "marking meta %p as POOLED in buffer %p", *meta,
+      buffer);
   GST_META_FLAG_SET (*meta, GST_META_FLAG_POOLED);
   GST_META_FLAG_SET (*meta, GST_META_FLAG_LOCKED);
 
@@ -396,17 +392,7 @@ default_stop (GstBufferPool * pool)
 
   /* clear the pool */
   while ((buffer = gst_atomic_queue_pop (priv->queue))) {
-    while (!gst_poll_read_control (priv->poll)) {
-      if (errno == EWOULDBLOCK) {
-        /* We put the buffer into the queue but did not finish writing control
-         * yet, let's wait a bit and retry */
-        g_thread_yield ();
-        continue;
-      } else {
-        /* Critical error but GstPoll already complained */
-        break;
-      }
-    }
+    gst_poll_read_control (priv->poll);
     do_free_buffer (pool, buffer);
   }
   return priv->cur_buffers == 0;
@@ -447,7 +433,6 @@ do_set_flushing (GstBufferPool * pool, gboolean flushing)
 
   if (flushing) {
     g_atomic_int_set (&pool->flushing, 1);
-    /* Write the flush token to wake up any waiters */
     gst_poll_write_control (priv->poll);
 
     if (pclass->flush_start)
@@ -456,19 +441,7 @@ do_set_flushing (GstBufferPool * pool, gboolean flushing)
     if (pclass->flush_stop)
       pclass->flush_stop (pool);
 
-    while (!gst_poll_read_control (priv->poll)) {
-      if (errno == EWOULDBLOCK) {
-        /* This should not really happen unless flushing and unflushing
-         * happens on different threads. Let's wait a bit to get back flush
-         * token from the thread that was setting it to flushing */
-        g_thread_yield ();
-        continue;
-      } else {
-        /* Critical error but GstPoll already complained */
-        break;
-      }
-    }
-
+    gst_poll_read_control (priv->poll);
     g_atomic_int_set (&pool->flushing, 0);
   }
 }
@@ -636,9 +609,9 @@ wrong_config:
  *
  * Set the configuration of the pool. If the pool is already configured, and
  * the configuration haven't change, this function will return %TRUE. If the
- * pool is active, this method will return %FALSE and active configuration
- * will remain. Buffers allocated form this pool must be returned or else this
- * function will do nothing and return %FALSE.
+ * pool is active, this function will try deactivating it. Buffers allocated
+ * form this pool must be returned or else this function will do nothing and
+ * return %FALSE.
  *
  * @config is a #GstStructure that contains the configuration parameters for
  * the pool. A default and mandatory set of parameters can be configured with
@@ -672,8 +645,18 @@ gst_buffer_pool_set_config (GstBufferPool * pool, GstStructure * config)
     goto config_unchanged;
 
   /* can't change the settings when active */
-  if (priv->active)
-    goto was_active;
+  if (priv->active) {
+    GST_BUFFER_POOL_UNLOCK (pool);
+    if (!gst_buffer_pool_set_active (pool, FALSE)) {
+      GST_BUFFER_POOL_LOCK (pool);
+      goto was_active;
+    }
+    GST_BUFFER_POOL_LOCK (pool);
+
+    /* not likely but as we released the lock */
+    if (priv->active)
+      goto was_active;
+  }
 
   /* we can't change when outstanding buffers */
   if (g_atomic_int_get (&priv->outstanding) != 0)
@@ -711,7 +694,7 @@ config_unchanged:
 was_active:
   {
     gst_structure_free (config);
-    GST_INFO_OBJECT (pool, "can't change config, we are active");
+    GST_WARNING_OBJECT (pool, "can't change config, we are active");
     GST_BUFFER_POOL_UNLOCK (pool);
     return FALSE;
   }
@@ -1025,8 +1008,8 @@ gst_buffer_pool_config_get_params (GstStructure * config, GstCaps ** caps,
 /**
  * gst_buffer_pool_config_get_allocator:
  * @config: (transfer none): a #GstBufferPool configuration
- * @allocator: (out) (allow-none) (transfer none): a #GstAllocator, or %NULL
- * @params: (out) (allow-none): #GstAllocationParams, or %NULL
+ * @allocator: (transfer none): a #GstAllocator
+ * @params: #GstAllocationParams
  *
  * Get the @allocator and @params from @config.
  *
@@ -1066,11 +1049,9 @@ gst_buffer_pool_config_get_allocator (GstStructure * config,
  * Validate that changes made to @config are still valid in the context of the
  * expected parameters. This function is a helper that can be used to validate
  * changes made by a pool to a config when gst_buffer_pool_set_config()
- * returns %FALSE. This expects that @caps haven't changed and that
- * @min_buffers aren't lower then what we initially expected.
- * This does not check if options or allocator parameters are still valid,
- * won't check if size have changed, since changing the size is valid to adapt
- * padding.
+ * returns %FALSE. This expects that @caps and @size haven't changed, and that
+ * @min_buffers aren't lower then what we initially expected. This does not check
+ * if options or allocator parameters.
  *
  * Since: 1.4
  *
@@ -1088,7 +1069,7 @@ gst_buffer_pool_config_validate_params (GstStructure * config, GstCaps * caps,
 
   gst_buffer_pool_config_get_params (config, &newcaps, &newsize, &newmin, NULL);
 
-  if (gst_caps_is_equal (caps, newcaps) && (newsize >= size)
+  if (gst_caps_is_equal (caps, newcaps) && (size == newsize)
       && (newmin >= min_buffers))
     ret = TRUE;
 
@@ -1109,17 +1090,7 @@ default_acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
     /* try to get a buffer from the queue */
     *buffer = gst_atomic_queue_pop (priv->queue);
     if (G_LIKELY (*buffer)) {
-      while (!gst_poll_read_control (priv->poll)) {
-        if (errno == EWOULDBLOCK) {
-          /* We put the buffer into the queue but did not finish writing control
-           * yet, let's wait a bit and retry */
-          g_thread_yield ();
-          continue;
-        } else {
-          /* Critical error but GstPoll already complained */
-          break;
-        }
-      }
+      gst_poll_read_control (priv->poll);
       result = GST_FLOW_OK;
       GST_LOG_OBJECT (pool, "acquired buffer %p", *buffer);
       break;
@@ -1127,7 +1098,7 @@ default_acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
 
     /* no buffer, try to allocate some more */
     GST_LOG_OBJECT (pool, "no buffer, trying to allocate");
-    result = do_alloc_buffer (pool, buffer, params);
+    result = do_alloc_buffer (pool, buffer, NULL);
     if (G_LIKELY (result == GST_FLOW_OK))
       /* we have a buffer, return it */
       break;
@@ -1144,33 +1115,10 @@ default_acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
 
     /* now we release the control socket, we wait for a buffer release or
      * flushing */
-    if (!gst_poll_read_control (pool->priv->poll)) {
-      if (errno == EWOULDBLOCK) {
-        /* This means that we have two threads trying to allocate buffers
-         * already, and the other one already got the wait token. This
-         * means that we only have to wait for the poll now and not write the
-         * token afterwards: we will be woken up once the other thread is
-         * woken up and that one will write the wait token it removed */
-        GST_LOG_OBJECT (pool, "waiting for free buffers or flushing");
-        gst_poll_wait (priv->poll, GST_CLOCK_TIME_NONE);
-      } else {
-        /* This is a critical error, GstPoll already gave a warning */
-        result = GST_FLOW_ERROR;
-        break;
-      }
-    } else {
-      /* We're the first thread waiting, we got the wait token and have to
-       * write it again later 
-       * OR
-       * We're a second thread and just consumed the flush token and block all
-       * other threads, in which case we must not wait and give it back
-       * immediately */
-      if (!GST_BUFFER_POOL_IS_FLUSHING (pool)) {
-        GST_LOG_OBJECT (pool, "waiting for free buffers or flushing");
-        gst_poll_wait (priv->poll, GST_CLOCK_TIME_NONE);
-      }
-      gst_poll_write_control (pool->priv->poll);
-    }
+    gst_poll_read_control (pool->priv->poll);
+    GST_LOG_OBJECT (pool, "waiting for free buffers or flushing");
+    gst_poll_wait (priv->poll, GST_CLOCK_TIME_NONE);
+    gst_poll_write_control (pool->priv->poll);
   }
 
   return result;

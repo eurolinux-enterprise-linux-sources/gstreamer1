@@ -134,6 +134,7 @@ struct _GstFakeSrc {
   guint		parentsize;
   guint		parentoffset;
   guint8	 pattern_byte;
+  gchar		*pattern;
   GList		*patternlist;
   gint		 datarate;
   gboolean	 sync;

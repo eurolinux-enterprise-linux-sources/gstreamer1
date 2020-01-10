@@ -25,7 +25,6 @@
 #include <gst/check/gstbufferstraw.h>
 #include <gst/check/gstcheck.h>
 #include <gst/check/gstconsistencychecker.h>
-#include <gst/check/gstharness.h>
 #include <gst/check/gsttestclock.h>
 
 #endif /* __GST_CHECK__H__ */

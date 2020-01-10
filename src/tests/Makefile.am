@@ -1,10 +1,7 @@
 EXTRA_DIST = README
 
-# Build misc unless both --disable-examples and --disable-benchmarks were passed
-
 if BUILD_BENCHMARKS
 SUBDIRS_BENCHMARKS = benchmarks
-SUBDIRS_MISC = misc
 else
 SUBDIRS_BENCHMARKS =
 endif
@@ -25,7 +22,6 @@ endif
 
 if BUILD_EXAMPLES
 SUBDIRS_EXAMPLES = examples
-SUBDIRS_MISC = misc
 else
 SUBDIRS_EXAMPLES =
 endif
@@ -33,7 +29,7 @@ endif
 SUBDIRS = \
 	$(SUBDIRS_BENCHMARKS) \
 	$(SUBDIRS_CHECK) \
-	$(SUBDIRS_MISC) \
+	misc		\
 	$(SUBDIRS_TESTS) \
 	$(SUBDIRS_EXAMPLES)
 

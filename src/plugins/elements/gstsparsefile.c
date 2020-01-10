@@ -36,13 +36,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef __BIONIC__               /* Android */
-#undef lseek
-#define lseek lseek64
-#undef off_t
-#define off_t guint64
-#endif
-
 #ifdef HAVE_FSEEKO
 #define FSEEK_FILE(file,offset)  (fseeko (file, (off_t) offset, SEEK_SET) != 0)
 #elif defined (G_OS_UNIX) || defined (G_OS_WIN32)
@@ -145,7 +138,7 @@ get_read_range (GstSparseFile * file, gsize offset, gsize count)
 /**
  * gst_sparse_file_new:
  *
- * Make a new #GstSparseFile
+ * Make a new #GstSparseFile backed by the file represented with @fd.
  *
  * Returns: a new #GstSparseFile, gst_sparse_file_free() after usage.
  *
@@ -243,7 +236,7 @@ gst_sparse_file_free (GstSparseFile * file)
  * If @available is not %NULL, it will be updated with the amount of
  * data already available after the last written byte.
  *
- * Returns: The number of bytes written or 0 on error.
+ * Returns: The number of bytes written of 0 on error.
  *
  * Since: 1.4
  */
@@ -350,11 +343,12 @@ gst_sparse_file_read (GstSparseFile * file, gsize offset, gpointer data,
         goto error;
     }
     res = fread (data, 1, count, file->file);
-    if (G_UNLIKELY (res < count))
-      goto error;
   }
 
   file->current_pos = offset + res;
+
+  if (G_UNLIKELY (res < count))
+    goto error;
 
   if (remaining)
     *remaining = range->stop - file->current_pos;

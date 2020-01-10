@@ -24,6 +24,12 @@
 # include "config.h"
 #endif
 
+#ifdef HAVE_VALGRIND_H
+# include <valgrind/valgrind.h>
+#else
+# define RUNNING_ON_VALGRIND FALSE
+#endif
+
 #include <gst/check/gstcheck.h>
 
 /* test metadata for PTS/DTS and duration */
@@ -111,9 +117,6 @@ test_transform_func (GstBuffer * transbuf, GstMeta * meta,
       test->duration = -1;
     }
     test->clock_rate = tmeta->clock_rate;
-  } else {
-    /* return FALSE, if transform type is not supported */
-    return FALSE;
   }
   return TRUE;
 }

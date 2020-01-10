@@ -22,7 +22,6 @@ GObject
           GstIdentity
         GstBin
           GstPipeline
-        GstConcat
         GstDownloadBuffer
         GstFunnel
         GstInputSelector
@@ -30,7 +29,6 @@ GObject
         GstOutputSelector
         GstQueue
         GstQueue2
-        GstStreamidDemux
         GstTee
         GstTypeFindElement
         GstValve
@@ -40,17 +38,10 @@ GObject
       GstPluginFeature
         GstDeviceProviderFactory
         GstElementFactory
-        GstTracerFactory
         GstTypeFindFactory
       GstRegistry
       GstTask
       GstTaskPool
-      GstTracer
-        GstLatencyTracer
-        GstLeaksTracer
-        GstLogTracer
-        GstRUsageTracer
-        GstStatsTracer
 GInterface
   GTypePlugin
   GstChildProxy

@@ -98,7 +98,7 @@ struct _GstQueue {
   GstSegment src_segment;
 
   /* position of src/sink */
-  GstClockTimeDiff sinktime, srctime;
+  GstClockTime sinktime, srctime;
   /* TRUE if either position needs to be recalculated */
   gboolean sink_tainted, src_tainted;
 

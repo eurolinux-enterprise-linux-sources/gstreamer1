@@ -18,21 +18,15 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "libcompat.h"
+#include "config.h"
 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
-#include <setjmp.h>
 
 #include "check_error.h"
-
-/**
- * Storage for setjmp/longjmp context information used in NOFORK mode
- */
-jmp_buf error_jmp_buffer;
 
 
 /* FIXME: including a colon at the end is a bad way to indicate an error */
@@ -40,7 +34,6 @@ void
 eprintf (const char *fmt, const char *file, int line, ...)
 {
   va_list args;
-
   fflush (stderr);
 
   fprintf (stderr, "%s:%d: ", file, line);
@@ -60,7 +53,6 @@ void *
 emalloc (size_t n)
 {
   void *p;
-
   p = malloc (n);
   if (p == NULL)
     eprintf ("malloc of %u bytes failed:", __FILE__, __LINE__ - 2, n);
@@ -71,7 +63,6 @@ void *
 erealloc (void *ptr, size_t n)
 {
   void *p;
-
   p = realloc (ptr, n);
   if (p == NULL)
     eprintf ("realloc of %u bytes failed:", __FILE__, __LINE__ - 2, n);

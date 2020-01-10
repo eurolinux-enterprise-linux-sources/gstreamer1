@@ -73,6 +73,10 @@ typedef gboolean   (*GstBufferListFunc)   (GstBuffer **buffer, guint idx,
  *
  * Returns: (transfer full): @list
  */
+#ifdef _FOOL_GTK_DOC_
+G_INLINE_FUNC GstBufferList * gst_buffer_list_ref (GstBufferList * list);
+#endif
+
 static inline GstBufferList *
 gst_buffer_list_ref (GstBufferList * list)
 {
@@ -87,6 +91,10 @@ gst_buffer_list_ref (GstBufferList * list)
  * Decreases the refcount of the buffer list. If the refcount reaches 0, the
  * buffer list will be freed.
  */
+#ifdef _FOOL_GTK_DOC_
+G_INLINE_FUNC void gst_buffer_list_unref (GstBufferList * list);
+#endif
+
 static inline void
 gst_buffer_list_unref (GstBufferList * list)
 {
@@ -104,6 +112,10 @@ gst_buffer_list_unref (GstBufferList * list)
  *
  * Returns: (transfer full): a new copy of @list.
  */
+#ifdef _FOOL_GTK_DOC_
+G_INLINE_FUNC GstBufferList * gst_buffer_list_copy (const GstBufferList * list);
+#endif
+
 static inline GstBufferList *
 gst_buffer_list_copy (const GstBufferList * list)
 {
@@ -146,13 +158,8 @@ void                     gst_buffer_list_remove                (GstBufferList *l
 gboolean                 gst_buffer_list_foreach               (GstBufferList *list,
                                                                 GstBufferListFunc func,
 								gpointer user_data);
-GstBufferList *          gst_buffer_list_copy_deep             (const GstBufferList * list);
 
 #define gst_buffer_list_add(l,b) gst_buffer_list_insert((l),-1,(b));
-
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBufferList, gst_buffer_list_unref)
-#endif
 
 G_END_DECLS
 

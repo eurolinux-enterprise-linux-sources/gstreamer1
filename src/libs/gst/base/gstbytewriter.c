@@ -39,7 +39,7 @@
  */
 
 /**
- * gst_byte_writer_new: (skip)
+ * gst_byte_writer_new:
  *
  * Creates a new, empty #GstByteWriter instance
  *
@@ -57,7 +57,7 @@ gst_byte_writer_new (void)
 }
 
 /**
- * gst_byte_writer_new_with_size: (skip)
+ * gst_byte_writer_new_with_size:
  * @size: Initial size of data
  * @fixed: If %TRUE the data can't be reallocated
  *
@@ -82,7 +82,7 @@ gst_byte_writer_new_with_size (guint size, gboolean fixed)
 }
 
 /**
- * gst_byte_writer_new_with_data: (skip)
+ * gst_byte_writer_new_with_data:
  * @data: Memory area for writing
  * @size: Size of @data in bytes
  * @initialized: If %TRUE the complete data can be read from the beginning

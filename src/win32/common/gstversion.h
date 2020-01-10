@@ -19,12 +19,6 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
-#ifndef __GST_VERSION_H__
-#define __GST_VERSION_H__
-
-#include <glib.h>
-
 /**
  * SECTION:gstversion
  * @short_description: GStreamer version macros.
@@ -41,6 +35,9 @@
  * The version macros get defined by including "gst/gst.h".
  */
 
+#ifndef __GST_VERSION_H__
+#define __GST_VERSION_H__
+
 G_BEGIN_DECLS
 
 /**
@@ -54,13 +51,13 @@ G_BEGIN_DECLS
  *
  * The minor version of GStreamer at compile time:
  */
-#define GST_VERSION_MINOR (10)
+#define GST_VERSION_MINOR (4)
 /**
  * GST_VERSION_MICRO:
  *
  * The micro version of GStreamer at compile time:
  */
-#define GST_VERSION_MICRO (4)
+#define GST_VERSION_MICRO (5)
 /**
  * GST_VERSION_NANO:
  *

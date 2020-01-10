@@ -101,6 +101,11 @@
 #include "gstparamspecs.h"
 #include "gstutils.h"
 
+#ifndef GST_DISABLE_TRACE
+#include "gsttrace.h"
+static GstAllocTrace *_gst_object_trace;
+#endif
+
 #define DEBUG_REFCOUNT
 
 /* Object signals and args */
@@ -149,17 +154,14 @@ static GParamSpec *properties[PROP_LAST];
 G_DEFINE_ABSTRACT_TYPE (GstObject, gst_object, G_TYPE_INITIALLY_UNOWNED);
 
 static void
-gst_object_constructed (GObject * object)
-{
-  GST_TRACER_OBJECT_CREATED (GST_OBJECT_CAST (object));
-
-  ((GObjectClass *) gst_object_parent_class)->constructed (object);
-}
-
-static void
 gst_object_class_init (GstObjectClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+
+#ifndef GST_DISABLE_TRACE
+  _gst_object_trace =
+      _gst_alloc_trace_register (g_type_name (GST_TYPE_OBJECT), -2);
+#endif
 
   gobject_class->set_property = gst_object_set_property;
   gobject_class->get_property = gst_object_get_property;
@@ -206,7 +208,6 @@ gst_object_class_init (GstObjectClass * klass)
   gobject_class->dispatch_properties_changed
       = GST_DEBUG_FUNCPTR (gst_object_dispatch_properties_changed);
 
-  gobject_class->constructed = gst_object_constructed;
   gobject_class->dispose = gst_object_dispose;
   gobject_class->finalize = gst_object_finalize;
 }
@@ -218,6 +219,10 @@ gst_object_init (GstObject * object)
   object->parent = NULL;
   object->name = NULL;
   GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p new", object);
+
+#ifndef GST_DISABLE_TRACE
+  _gst_alloc_trace_new (_gst_object_trace, object);
+#endif
 
   object->flags = 0;
 
@@ -361,7 +366,7 @@ gst_object_dispose (GObject * object)
   GstObject *self = (GstObject *) object;
   GstObject *parent;
 
-  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p dispose", object);
+  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "dispose");
 
   GST_OBJECT_LOCK (object);
   if ((parent = GST_OBJECT_PARENT (object)))
@@ -403,14 +408,16 @@ gst_object_finalize (GObject * object)
 {
   GstObject *gstobject = GST_OBJECT_CAST (object);
 
-  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p finalize", object);
+  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "finalize");
 
   g_signal_handlers_destroy (object);
 
   g_free (gstobject->name);
   g_mutex_clear (&gstobject->lock);
 
-  GST_TRACER_OBJECT_DESTROYED (gstobject);
+#ifndef GST_DISABLE_TRACE
+  _gst_alloc_trace_free (_gst_object_trace, object);
+#endif
 
   ((GObjectClass *) gst_object_parent_class)->finalize (object);
 }
@@ -616,8 +623,10 @@ gst_object_set_name (GstObject * object, const gchar * name)
     GST_OBJECT_UNLOCK (object);
     result = gst_object_set_name_default (object);
   }
-
-  g_object_notify (G_OBJECT (object), "name");
+  /* FIXME-0.11: this misses a g_object_notify (object, "name"); unless called
+   * from gst_object_set_property.
+   * Ideally remove such custom setters (or make it static).
+   */
   return result;
 
   /* error */
@@ -770,35 +779,7 @@ gst_object_unparent (GstObject * object)
 }
 
 /**
- * gst_object_has_as_parent:
- * @object: a #GstObject to check
- * @parent: a #GstObject to check as parent
- *
- * Check if @parent is the parent of @object.
- * E.g. a #GstElement can check if it owns a given #GstPad.
- *
- * Returns: %FALSE if either @object or @parent is %NULL. %TRUE if @parent is
- *          the parent of @object. Otherwise %FALSE.
- *
- * MT safe. Grabs and releases @object's locks.
- * Since: 1.6
- */
-gboolean
-gst_object_has_as_parent (GstObject * object, GstObject * parent)
-{
-  gboolean result = FALSE;
-
-  if (G_LIKELY (GST_IS_OBJECT (object) && GST_IS_OBJECT (parent))) {
-    GST_OBJECT_LOCK (object);
-    result = GST_OBJECT_PARENT (object) == parent;
-    GST_OBJECT_UNLOCK (object);
-  }
-
-  return result;
-}
-
-/**
- * gst_object_has_as_ancestor:
+ * gst_object_has_ancestor:
  * @object: a #GstObject to check
  * @ancestor: a #GstObject to check as ancestor
  *
@@ -810,7 +791,7 @@ gst_object_has_as_parent (GstObject * object, GstObject * parent)
  * MT safe. Grabs and releases @object's locks.
  */
 gboolean
-gst_object_has_as_ancestor (GstObject * object, GstObject * ancestor)
+gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
 {
   GstObject *parent, *tmp;
 
@@ -831,32 +812,6 @@ gst_object_has_as_ancestor (GstObject * object, GstObject * ancestor)
 
   return FALSE;
 }
-
-/**
- * gst_object_has_ancestor:
- * @object: a #GstObject to check
- * @ancestor: a #GstObject to check as ancestor
- *
- * Check if @object has an ancestor @ancestor somewhere up in
- * the hierarchy. One can e.g. check if a #GstElement is inside a #GstPipeline.
- *
- * Returns: %TRUE if @ancestor is an ancestor of @object.
- *
- * Deprecated: Use gst_object_has_as_ancestor() instead.
- *
- * MT safe. Grabs and releases @object's locks.
- */
-/* FIXME 2.0: remove */
-#ifndef GST_REMOVE_DEPRECATED
-#ifdef GST_DISABLE_DEPRECATED
-gboolean gst_object_has_ancestor (GstObject * object, GstObject * ancestor);
-#endif
-gboolean
-gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
-{
-  return gst_object_has_as_ancestor (object, ancestor);
-}
-#endif
 
 /**
  * gst_object_check_uniqueness:
@@ -1140,7 +1095,7 @@ gst_object_sync_values (GstObject * object, GstClockTime timestamp)
  * gst_object_has_active_control_bindings:
  * @object: the object that has controlled properties
  *
- * Check if the @object has active controlled properties.
+ * Check if the @object has an active controlled properties.
  *
  * Returns: %TRUE if the object has active controlled properties
  */

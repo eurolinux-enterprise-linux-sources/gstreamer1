@@ -46,7 +46,6 @@ G_BEGIN_DECLS
 
 typedef struct _GstControlBinding GstControlBinding;
 typedef struct _GstControlBindingClass GstControlBindingClass;
-typedef struct _GstControlBindingPrivate GstControlBindingPrivate;
 
 /* FIXME(2.0): remove, this is unused */
 typedef void (* GstControlBindingConvert) (GstControlBinding *binding, gdouble src_value, GValue *dest_value);
@@ -60,26 +59,17 @@ typedef void (* GstControlBindingConvert) (GstControlBinding *binding, gdouble s
  */
 struct _GstControlBinding {
   GstObject parent;
-
+  
   /*< public >*/
   gchar *name;
   GParamSpec *pspec;
 
   /*< private >*/
-#ifndef GST_DISABLE_DEPRECATED
   GstObject *object;            /* GstObject owning the property
                                  * (== parent when bound) */
-#else
-  gpointer __object;
-#endif
   gboolean disabled;
 
-  union {
-    struct {
-      GstControlBindingPrivate *priv;
-    } abi;
-    gpointer _gst_reserved[GST_PADDING];
-  } ABI;
+  gpointer _gst_reserved[GST_PADDING];
 };
 
 /**
@@ -125,10 +115,6 @@ gboolean            gst_control_binding_get_g_value_array  (GstControlBinding *b
 
 void                gst_control_binding_set_disabled       (GstControlBinding * binding, gboolean disabled);
 gboolean            gst_control_binding_is_disabled        (GstControlBinding * binding);
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstControlBinding, gst_object_unref)
-#endif
-
 G_END_DECLS
 
 #endif /* __GST_CONTROL_BINDING_H__ */

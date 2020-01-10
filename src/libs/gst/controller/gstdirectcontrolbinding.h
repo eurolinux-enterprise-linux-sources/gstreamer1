@@ -85,12 +85,7 @@ struct _GstDirectControlBinding {
   GstDirectControlBindingConvertValue convert_value;
   GstDirectControlBindingConvertGValue convert_g_value;
 
-  union {
-    gpointer _gst_reserved[GST_PADDING];
-    struct {
-      gboolean want_absolute;
-    } abi;
-  } ABI;
+  gpointer _gst_reserved[GST_PADDING];
 };
 
 /**
@@ -115,14 +110,6 @@ GType gst_direct_control_binding_get_type (void);
 
 GstControlBinding * gst_direct_control_binding_new (GstObject * object, const gchar * property_name,
                                                     GstControlSource * cs);
-
-GstControlBinding * gst_direct_control_binding_new_absolute (GstObject * object, const gchar * property_name, 
-                                                    GstControlSource * cs);
-
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstDirectControlBinding, gst_object_unref)
-#endif
-
 G_END_DECLS
 
 #endif /* __GST_DIRECT_CONTROL_BINDING_H__ */

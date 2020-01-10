@@ -23,8 +23,6 @@
 #ifndef __GST_ELEMENT_METADATA_H__
 #define __GST_ELEMENT_METADATA_H__
 
-#include <glib.h>
-
 G_BEGIN_DECLS
 
 /**

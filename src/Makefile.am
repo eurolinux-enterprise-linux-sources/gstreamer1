@@ -11,8 +11,7 @@ SUBDIRS = pkgconfig \
 	docs \
 	po \
 	m4 \
-	common \
-	data
+	common
 
 if BUILD_TOOLS
 SUBDIRS += tools
@@ -24,8 +23,7 @@ DIST_SUBDIRS = pkgconfig \
 	docs \
 	po \
 	m4 \
-	common \
-	data
+	common
 
 # include before EXTRA_DIST for win32 assignment
 include $(top_srcdir)/common/win32.mak
@@ -87,21 +85,15 @@ endif
 
 if HAVE_CHECK
 check-valgrind:
-	$(MAKE) -C tests/check check-valgrind
+	cd tests/check && make check-valgrind
 
 check-torture:
-	$(MAKE) -C tests/check torture
-
-build-checks:
-	$(MAKE) -C tests/check build-checks
+	cd tests/check && make torture
 else
 check-valgrind:
 	echo "'check' library not installed, skipping"
 
 check-torture:
-	echo "'check' library not installed, skipping"
-
-build-checks:
 	echo "'check' library not installed, skipping"
 endif
 
@@ -153,7 +145,9 @@ include $(top_srcdir)/common/coverage/lcov.mak
 # Do not run the check-exports test in case any option which causes the API to
 # change has been used
 if !GST_DISABLE_REGISTRY
+if !GST_DISABLE_TRACE
 CHECK_EXPORTS = check-exports
+endif
 endif
 
 check: $(CHECK_EXPORTS) check-enum-gettypes
@@ -203,13 +197,8 @@ CRUFT_FILES = \
 
 CRUFT_DIRS = \
 	$(top_builddir)/tests/examples/xml \
-	$(top_builddir)/tests/examples/launch \
-	$(top_builddir)/tests/examples/metadata \
-	$(top_builddir)/tests/examples/queue \
-	$(top_builddir)/tests/examples/typefind \
 	$(top_builddir)/gst/tmp-introspect* \
-	$(top_builddir)/libs/gst/*/tmp-introspect* \
-	$(top_srcdir)/docs/plugins/tmpl
+	$(top_builddir)/libs/gst/*/tmp-introspect*
 
 include $(top_srcdir)/common/cruft.mak
 

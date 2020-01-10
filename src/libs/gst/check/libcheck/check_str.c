@@ -18,12 +18,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "libcompat.h"
+#include "config.h"
 
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "internal-check.h"
+#include "check.h"
 #include "check_list.h"
 #include "check_error.h"
 #include "check_impl.h"
@@ -79,12 +79,11 @@ char *
 ck_strdup_printf (const char *fmt, ...)
 {
   /* Guess we need no more than 100 bytes. */
-  int n;
-  size_t size = 100;
+  int n, size = 100;
   char *p;
   va_list ap;
 
-  p = (char *) emalloc (size);
+  p = emalloc (size);
 
   while (1) {
     /* Try to print in the allocated space. */
@@ -92,16 +91,16 @@ ck_strdup_printf (const char *fmt, ...)
     n = vsnprintf (p, size, fmt, ap);
     va_end (ap);
     /* If that worked, return the string. */
-    if (n > -1 && n < (int) size)
+    if (n > -1 && n < size)
       return p;
 
     /* Else try again with more space. */
     if (n > -1)                 /* C99 conform vsnprintf() */
-      size = (size_t) n + 1;    /* precisely what is needed */
+      size = n + 1;             /* precisely what is needed */
     else                        /* glibc 2.0 */
       size *= 2;                /* twice the old size */
 
-    p = (char *) erealloc (p, size);
+    p = erealloc (p, size);
   }
 }
 
@@ -109,7 +108,6 @@ static const char *
 tr_type_str (TestResult * tr)
 {
   const char *str = NULL;
-
   if (tr->ctx == CK_CTX_TEST) {
     if (tr->rtype == CK_PASS)
       str = "P";

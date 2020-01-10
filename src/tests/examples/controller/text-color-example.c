@@ -4,7 +4,7 @@
  * Builds a pipeline with [videotestsrc ! textoverlay ! ximagesink] and
  * modulates color, text and text pos.
  *
- * Needs gst-plugins-base installed.
+ * Needs gst-plugin-base installed.
  */
 
 #include <gst/gst.h>

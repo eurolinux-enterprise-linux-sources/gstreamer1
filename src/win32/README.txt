@@ -1,30 +1,28 @@
 Building GStreamer on Windows
 -----------------------------
 
-Running GStreamer on Windows is supported.
+Running GStreamer on Windows is currently experimental, but improving.
 
-Official Windows binaries for each release can be found at:
-
-  https://gstreamer.freedesktop.org/data/pkg/windows/
-
-
-Building with MinGW/MSys
-------------------------
-
+Building on MinGW/MSys
+----------------------
 Should work out of the box from the toplevel directory using the standard
 Unix build system provided.
 
-This build type is officially supported.
+This build type is fairly well supported.
 
-You can build Windows binaries including all required dependencies
-using the 'cerbero' build tool:
+Building with Visual Studio 6
+-----------------------------
+The directory vs6/ contains the workspaces needed to build GStreamer from
+Visual Studio.
 
-  http://cgit.freedesktop.org/gstreamer/cerbero/
+This build type is fairly well supported.
 
-This works both natively on Windows or as cross-compile from Linux.
+Building with Visual Studio 7
+-----------------------------
+vs7/ contains the files needed, but they haven't been updated since the
+0.8 series.
 
+This build is currently unsupported.
 
-Building with Visual Studio
----------------------------
-
-Building with Visual Studio is currently not supported.
+The common/ directory contains support files that can be shared between
+these two versions of Visual Studio.

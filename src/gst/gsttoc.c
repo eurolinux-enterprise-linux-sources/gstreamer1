@@ -388,18 +388,6 @@ gst_toc_find_entry (const GstToc * toc, const gchar * uid)
   return NULL;
 }
 
-static GList *
-gst_toc_deep_copy_toc_entries (GList * entry_list)
-{
-  GQueue new_entries = G_QUEUE_INIT;
-  GList *l;
-
-  for (l = entry_list; l != NULL; l = l->next)
-    g_queue_push_tail (&new_entries, gst_toc_entry_copy (l->data));
-
-  return new_entries.head;
-}
-
 /**
  * gst_toc_entry_copy:
  * @entry: #GstTocEntry to copy.
@@ -413,8 +401,9 @@ gst_toc_deep_copy_toc_entries (GList * entry_list)
 static GstTocEntry *
 gst_toc_entry_copy (const GstTocEntry * entry)
 {
-  GstTocEntry *ret;
+  GstTocEntry *ret, *sub;
   GstTagList *list;
+  GList *cur;
 
   g_return_val_if_fail (entry != NULL, NULL);
 
@@ -430,7 +419,16 @@ gst_toc_entry_copy (const GstTocEntry * entry)
     ret->tags = list;
   }
 
-  ret->subentries = gst_toc_deep_copy_toc_entries (entry->subentries);
+  cur = entry->subentries;
+  while (cur != NULL) {
+    sub = gst_toc_entry_copy (cur->data);
+
+    if (sub != NULL)
+      ret->subentries = g_list_prepend (ret->subentries, sub);
+
+    cur = cur->next;
+  }
+  ret->subentries = g_list_reverse (ret->subentries);
 
   return ret;
 }
@@ -448,6 +446,8 @@ static GstToc *
 gst_toc_copy (const GstToc * toc)
 {
   GstToc *ret;
+  GstTocEntry *entry;
+  GList *cur;
   GstTagList *list;
 
   g_return_val_if_fail (toc != NULL, NULL);
@@ -460,8 +460,16 @@ gst_toc_copy (const GstToc * toc)
     ret->tags = list;
   }
 
-  ret->entries = gst_toc_deep_copy_toc_entries (toc->entries);
+  cur = toc->entries;
+  while (cur != NULL) {
+    entry = gst_toc_entry_copy (cur->data);
 
+    if (entry != NULL)
+      ret->entries = g_list_prepend (ret->entries, entry);
+
+    cur = cur->next;
+  }
+  ret->entries = g_list_reverse (ret->entries);
   return ret;
 }
 

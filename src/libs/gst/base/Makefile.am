@@ -57,6 +57,18 @@ CLEANFILES = *.gcno *.gcda *.gcov
 
 gcov: $(libgstbase_@GST_API_VERSION@_la_SOURCES:=.gcov)
 
+Android.mk: Makefile.am
+	androgenizer -:PROJECT gstreamer -:SHARED libgstbase-@GST_API_VERSION@ -:TAGS eng debug \
+	 -:REL_TOP $(top_srcdir) -:ABS_TOP $(abs_top_srcdir) \
+	 -:SOURCES $(libgstbase_@GST_API_VERSION@_la_SOURCES) \
+	 -:CFLAGS $(DEFS) $(libgstbase_@GST_API_VERSION@_la_CFLAGS) \
+	 -:LDFLAGS $(libgstbase_@GST_API_VERSION@_la_LDFLAGS) \
+	           $(libgstbase_@GST_API_VERSION@_la_LIBADD) \
+	 -:HEADER_TARGET gstreamer-@GST_API_VERSION@/gst/base \
+	 -:HEADERS $(libgstbase_@GST_API_VERSION@include_HEADERS) \
+	 -:PASSTHROUGH LOCAL_ARM_MODE:=arm \
+	> $@
+
 if HAVE_INTROSPECTION
 BUILT_GIRSOURCES = GstBase-@GST_API_VERSION@.gir
 
@@ -64,14 +76,12 @@ gir_headers=$(patsubst %,$(srcdir)/%, $(libgstbase_@GST_API_VERSION@include_HEAD
 gir_sources=$(patsubst %,$(srcdir)/%, $(libgstbase_@GST_API_VERSION@_la_SOURCES))
 
 GstBase-@GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libgstbase-@GST_API_VERSION@.la
-	$(AM_V_GEN)PKG_CONFIG_PATH="$(GST_PKG_CONFIG_PATH)" GI_SCANNER_DISABLE_CACHE=yes\
+	$(AM_V_GEN)PKG_CONFIG_PATH="$(GST_PKG_CONFIG_PATH)" \
 		GST_PLUGIN_SYSTEM_PATH_1_0="" GST_PLUGIN_PATH_1_0="" GST_REGISTRY_UPDATE=no \
-		CPPFLAGS="$(CPPFLAGS)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CC="$(CC)" PKG_CONFIG="$(PKG_CONFIG)" DLLTOOL="$(DLLTOOL)" \
 		$(INTROSPECTION_SCANNER) -v --namespace GstBase \
 		--nsversion=@GST_API_VERSION@ \
 		--warn-all \
-		--identifier-prefix=Gst \
-		--symbol-prefix=gst \
+		--strip-prefix=Gst \
 		-I$(top_srcdir) \
 		-I$(top_srcdir)/libs \
 		-I$(top_builddir) \
@@ -84,7 +94,7 @@ GstBase-@GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libgstbase-@GST_API_VERS
 		--libtool="${LIBTOOL}" \
 		--pkg gstreamer-@GST_API_VERSION@ \
 		--pkg-export gstreamer-base-@GST_API_VERSION@ \
-		--add-init-section="$(INTROSPECTION_INIT)" \
+		--add-init-section="gst_init(NULL,NULL);" \
 		--output $@ \
 		$(gir_headers) \
 		$(gir_sources)
