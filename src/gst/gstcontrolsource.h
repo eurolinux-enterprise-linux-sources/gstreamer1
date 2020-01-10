@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_CONTROL_SOURCE_H__
@@ -66,7 +66,7 @@ struct _GstTimedValue
  * GstControlSourceGetValue:
  * @self: the #GstControlSource instance
  * @timestamp: timestamp for which a value should be calculated
- * @value: a #GValue which will be set to the result. It must be initialized to the correct type.
+ * @value: a value which will be set to the result.
  *
  * Function for returning a value for a given timestamp.
  *
@@ -95,7 +95,7 @@ typedef gboolean (* GstControlSourceGetValueArray) (GstControlSource *self,
 /**
  * GstControlSource:
  * @get_value: Function for returning a value for a given timestamp
- * @get_value_array: Function for returning a #GstValueArray for a given timestamp
+ * @get_value_array: Function for returning a values array for a given timestamp
  *
  * The instance structure of #GstControlSource.
  */
@@ -113,7 +113,6 @@ struct _GstControlSource {
 /**
  * GstControlSourceClass:
  * @parent_class: Parent class
- * @bind: Class method for binding the #GstControlSource to a specific GParamSpec
  *
  * The class structure of #GstControlSource.
  */
@@ -134,6 +133,14 @@ gboolean       gst_control_source_get_value             (GstControlSource *self,
 gboolean       gst_control_source_get_value_array       (GstControlSource *self, GstClockTime timestamp,
                                                          GstClockTime interval, guint n_values,
                                                          gdouble *values);
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstControlSource, gst_object_unref)
+#endif
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstValueArray, gst_object_unref)
+#endif
+
 G_END_DECLS
 
 #endif /* __GST_CONTROL_SOURCE_H__ */

@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -34,20 +34,15 @@
  * handle or produce at runtime.
  *
  * A #GstCaps can be constructed with the following code fragment:
- *
- * <example>
- *  <title>Creating caps</title>
- *  <programlisting>
- *  GstCaps *caps;
- *  caps = gst_caps_new_simple ("video/x-raw",
- *       "format", G_TYPE_STRING, "I420",
- *       "framerate", GST_TYPE_FRACTION, 25, 1,
- *       "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
- *       "width", G_TYPE_INT, 320,
- *       "height", G_TYPE_INT, 240,
- *       NULL);
- *  </programlisting>
- * </example>
+ * |[<!-- language="C" -->
+ *   GstCaps *caps = gst_caps_new_simple ("video/x-raw",
+ *      "format", G_TYPE_STRING, "I420",
+ *      "framerate", GST_TYPE_FRACTION, 25, 1,
+ *      "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+ *      "width", G_TYPE_INT, 320,
+ *      "height", G_TYPE_INT, 240,
+ *      NULL);
+ * ]|
  *
  * A #GstCaps is fixed when it has no properties with ranges or lists. Use
  * gst_caps_is_fixed() to test for fixed caps. Fixed caps can be used in a
@@ -56,7 +51,11 @@
  * Various methods exist to work with the media types such as subtracting
  * or intersecting.
  *
- * Last reviewed on 2011-03-28 (0.11.3)
+ * Be aware that the current #GstCaps / #GstStructure serialization into string
+ * has limited support for nested #GstCaps / #GstStructure fields. It can only
+ * support one level of nesting. Using more levels will lead to unexpected
+ * behavior when using serialization features, such as gst_caps_to_string() or
+ * gst_value_serialize() and their counterparts.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -71,11 +70,17 @@
 
 #define DEBUG_REFCOUNT
 
+typedef struct _GstCapsArrayElement
+{
+  GstStructure *structure;
+  GstCapsFeatures *features;
+} GstCapsArrayElement;
+
 typedef struct _GstCapsImpl
 {
   GstCaps caps;
 
-  GPtrArray *array;
+  GArray *array;
 } GstCapsImpl;
 
 #define GST_CAPS_ARRAY(c) (((GstCapsImpl *)(c))->array)
@@ -87,7 +92,7 @@ typedef struct _GstCapsImpl
 
 /* same as gst_caps_is_any () */
 #define CAPS_IS_ANY(caps)				\
-  (GST_CAPS_FLAGS(caps) & GST_CAPS_FLAG_ANY)
+  (!!(GST_CAPS_FLAGS(caps) & GST_CAPS_FLAG_ANY))
 
 /* same as gst_caps_is_empty () */
 #define CAPS_IS_EMPTY(caps)				\
@@ -96,15 +101,22 @@ typedef struct _GstCapsImpl
 #define CAPS_IS_EMPTY_SIMPLE(caps)					\
   ((GST_CAPS_ARRAY (caps) == NULL) || (GST_CAPS_LEN (caps) == 0))
 
+#define gst_caps_features_copy_conditional(f) ((f && (gst_caps_features_is_any (f) || !gst_caps_features_is_equal (f, GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) ? gst_caps_features_copy (f) : NULL)
+
 /* quick way to get a caps structure at an index without doing a type or array
  * length check */
 #define gst_caps_get_structure_unchecked(caps, index) \
-     ((GstStructure *)g_ptr_array_index (GST_CAPS_ARRAY (caps), (index)))
+     (g_array_index (GST_CAPS_ARRAY (caps), GstCapsArrayElement, (index)).structure)
+#define gst_caps_get_features_storage_unchecked(caps, index) \
+     (&g_array_index (GST_CAPS_ARRAY (caps), GstCapsArrayElement, (index)).features)
+#define gst_caps_get_features_unchecked(caps, index) \
+     (g_atomic_pointer_get (gst_caps_get_features_storage_unchecked (caps, index)))
 /* quick way to append a structure without checking the args */
-#define gst_caps_append_structure_unchecked(caps, structure) G_STMT_START{\
-  GstStructure *__s=structure;                                      \
-  if (gst_structure_set_parent_refcount (__s, &GST_MINI_OBJECT_REFCOUNT(caps)))         \
-    g_ptr_array_add (GST_CAPS_ARRAY (caps), __s);                             \
+#define gst_caps_append_structure_unchecked(caps, s, f) G_STMT_START{\
+  GstCapsArrayElement __e={s, f};                                      \
+  if (gst_structure_set_parent_refcount (__e.structure, &GST_MINI_OBJECT_REFCOUNT(caps)) && \
+      (!__e.features || gst_caps_features_set_parent_refcount (__e.features, &GST_MINI_OBJECT_REFCOUNT(caps))))         \
+    g_array_append_val (GST_CAPS_ARRAY (caps), __e);                             \
 }G_STMT_END
 
 /* lock to protect multiple invocations of static caps to caps conversion */
@@ -133,11 +145,27 @@ _priv_gst_caps_initialize (void)
       G_TYPE_STRING, gst_caps_transform_to_string);
 }
 
+void
+_priv_gst_caps_cleanup (void)
+{
+  gst_caps_unref (_gst_caps_any);
+  _gst_caps_any = NULL;
+  gst_caps_unref (_gst_caps_none);
+  _gst_caps_none = NULL;
+}
+
+GstCapsFeatures *
+__gst_caps_get_features_unchecked (const GstCaps * caps, guint idx)
+{
+  return gst_caps_get_features_unchecked (caps, idx);
+}
+
 static GstCaps *
 _gst_caps_copy (const GstCaps * caps)
 {
   GstCaps *newcaps;
   GstStructure *structure;
+  GstCapsFeatures *features;
   guint i, n;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
@@ -151,7 +179,9 @@ _gst_caps_copy (const GstCaps * caps)
 
   for (i = 0; i < n; i++) {
     structure = gst_caps_get_structure_unchecked (caps, i);
-    gst_caps_append_structure (newcaps, gst_structure_copy (structure));
+    features = gst_caps_get_features_unchecked (caps, i);
+    gst_caps_append_structure_full (newcaps, gst_structure_copy (structure),
+        gst_caps_features_copy_conditional (features));
   }
 
   return newcaps;
@@ -162,6 +192,7 @@ static void
 _gst_caps_free (GstCaps * caps)
 {
   GstStructure *structure;
+  GstCapsFeatures *features;
   guint i, len;
 
   /* The refcount must be 0, but since we're only called by gst_caps_unref,
@@ -170,11 +201,16 @@ _gst_caps_free (GstCaps * caps)
   /* This can be used to get statistics about caps sizes */
   /*GST_CAT_INFO (GST_CAT_CAPS, "caps size: %d", len); */
   for (i = 0; i < len; i++) {
-    structure = (GstStructure *) gst_caps_get_structure_unchecked (caps, i);
+    structure = gst_caps_get_structure_unchecked (caps, i);
     gst_structure_set_parent_refcount (structure, NULL);
     gst_structure_free (structure);
+    features = gst_caps_get_features_unchecked (caps, i);
+    if (features) {
+      gst_caps_features_set_parent_refcount (features, NULL);
+      gst_caps_features_free (features);
+    }
   }
-  g_ptr_array_free (GST_CAPS_ARRAY (caps), TRUE);
+  g_array_free (GST_CAPS_ARRAY (caps), TRUE);
 
 #ifdef DEBUG_REFCOUNT
   GST_CAT_TRACE (GST_CAT_CAPS, "freeing caps %p", caps);
@@ -194,7 +230,8 @@ gst_caps_init (GstCaps * caps)
    * in practice
    * GST_CAPS_ARRAY (caps) = g_ptr_array_sized_new (32);
    */
-  GST_CAPS_ARRAY (caps) = g_ptr_array_new ();
+  GST_CAPS_ARRAY (caps) =
+      g_array_new (FALSE, TRUE, sizeof (GstCapsArrayElement));
 }
 
 /**
@@ -260,7 +297,7 @@ gst_caps_new_empty_simple (const char *media_type)
   caps = gst_caps_new_empty ();
   structure = gst_structure_new_empty (media_type);
   if (structure)
-    gst_caps_append_structure_unchecked (caps, structure);
+    gst_caps_append_structure_unchecked (caps, structure, NULL);
 
   return caps;
 }
@@ -292,7 +329,7 @@ gst_caps_new_simple (const char *media_type, const char *fieldname, ...)
   va_end (var_args);
 
   if (structure)
-    gst_caps_append_structure_unchecked (caps, structure);
+    gst_caps_append_structure_unchecked (caps, structure, NULL);
   else
     gst_caps_replace (&caps, NULL);
 
@@ -305,7 +342,7 @@ gst_caps_new_simple (const char *media_type, const char *fieldname, ...)
  * @...: additional structures to add
  *
  * Creates a new #GstCaps and adds all the structures listed as
- * arguments.  The list must be NULL-terminated.  The structures
+ * arguments.  The list must be %NULL-terminated.  The structures
  * are not copied; the returned #GstCaps owns the structures.
  *
  * Returns: (transfer full): the new #GstCaps
@@ -329,7 +366,7 @@ gst_caps_new_full (GstStructure * struct1, ...)
  * @var_args: additional structures to add
  *
  * Creates a new #GstCaps and adds all the structures listed as
- * arguments.  The list must be NULL-terminated.  The structures
+ * arguments.  The list must be %NULL-terminated.  The structures
  * are not copied; the returned #GstCaps owns the structures.
  *
  * Returns: (transfer full): the new #GstCaps
@@ -342,7 +379,7 @@ gst_caps_new_full_valist (GstStructure * structure, va_list var_args)
   caps = gst_caps_new_empty ();
 
   while (structure) {
-    gst_caps_append_structure_unchecked (caps, structure);
+    gst_caps_append_structure_unchecked (caps, structure, NULL);
     structure = va_arg (var_args, GstStructure *);
   }
 
@@ -387,8 +424,13 @@ gst_static_caps_get (GstStaticCaps * static_caps)
     *caps = gst_caps_from_string (string);
 
     /* convert to string */
-    if (G_UNLIKELY (*caps == NULL))
+    if (G_UNLIKELY (*caps == NULL)) {
       g_critical ("Could not convert static caps \"%s\"", string);
+      goto done;
+    }
+
+    /* Caps generated from static caps are usually leaked */
+    GST_MINI_OBJECT_FLAG_SET (*caps, GST_MINI_OBJECT_FLAG_MAY_BE_LEAKED);
 
     GST_CAT_TRACE (GST_CAT_CAPS, "created %p from string %s", static_caps,
         string);
@@ -426,13 +468,39 @@ gst_static_caps_cleanup (GstStaticCaps * static_caps)
 
 /* manipulation */
 
+static void
+gst_caps_remove_and_get_structure_and_features (GstCaps * caps, guint idx,
+    GstStructure ** s, GstCapsFeatures ** f)
+{
+  GstStructure *s_;
+  GstCapsFeatures *f_;
+
+  s_ = gst_caps_get_structure_unchecked (caps, idx);
+  f_ = gst_caps_get_features_unchecked (caps, idx);
+
+  /* don't use index_fast, gst_caps_simplify relies on the order */
+  g_array_remove_index (GST_CAPS_ARRAY (caps), idx);
+
+  gst_structure_set_parent_refcount (s_, NULL);
+  if (f_) {
+    gst_caps_features_set_parent_refcount (f_, NULL);
+  }
+
+  *s = s_;
+  *f = f_;
+}
+
 static GstStructure *
 gst_caps_remove_and_get_structure (GstCaps * caps, guint idx)
 {
-  /* don't use index_fast, gst_caps_simplify relies on the order */
-  GstStructure *s = g_ptr_array_remove_index (GST_CAPS_ARRAY (caps), idx);
+  GstStructure *s;
+  GstCapsFeatures *f;
 
-  gst_structure_set_parent_refcount (s, NULL);
+  gst_caps_remove_and_get_structure_and_features (caps, idx, &s, &f);
+
+  if (f)
+    gst_caps_features_free (f);
+
   return s;
 }
 
@@ -472,6 +540,7 @@ void
 gst_caps_append (GstCaps * caps1, GstCaps * caps2)
 {
   GstStructure *structure;
+  GstCapsFeatures *features;
   int i;
 
   g_return_if_fail (GST_IS_CAPS (caps1));
@@ -485,8 +554,9 @@ gst_caps_append (GstCaps * caps1, GstCaps * caps2)
     caps2 = gst_caps_make_writable (caps2);
 
     for (i = GST_CAPS_LEN (caps2); i; i--) {
-      structure = gst_caps_remove_and_get_structure (caps2, 0);
-      gst_caps_append_structure_unchecked (caps1, structure);
+      gst_caps_remove_and_get_structure_and_features (caps2, 0, &structure,
+          &features);
+      gst_caps_append_structure_unchecked (caps1, structure, features);
     }
     gst_caps_unref (caps2);     /* guaranteed to free it */
   }
@@ -508,6 +578,7 @@ GstCaps *
 gst_caps_merge (GstCaps * caps1, GstCaps * caps2)
 {
   GstStructure *structure;
+  GstCapsFeatures *features;
   int i;
   GstCaps *result;
 
@@ -524,8 +595,9 @@ gst_caps_merge (GstCaps * caps1, GstCaps * caps2)
     caps2 = gst_caps_make_writable (caps2);
 
     for (i = GST_CAPS_LEN (caps2); i; i--) {
-      structure = gst_caps_remove_and_get_structure (caps2, 0);
-      caps1 = gst_caps_merge_structure (caps1, structure);
+      gst_caps_remove_and_get_structure_and_features (caps2, 0, &structure,
+          &features);
+      caps1 = gst_caps_merge_structure_full (caps1, structure, features);
     }
     gst_caps_unref (caps2);
     result = caps1;
@@ -559,7 +631,30 @@ gst_caps_append_structure (GstCaps * caps, GstStructure * structure)
   g_return_if_fail (IS_WRITABLE (caps));
 
   if (G_LIKELY (structure)) {
-    gst_caps_append_structure_unchecked (caps, structure);
+    gst_caps_append_structure_unchecked (caps, structure, NULL);
+  }
+}
+
+/**
+ * gst_caps_append_structure_full:
+ * @caps: the #GstCaps that will be appended to
+ * @structure: (transfer full): the #GstStructure to append
+ * @features: (transfer full) (allow-none): the #GstCapsFeatures to append
+ *
+ * Appends @structure with @features to @caps.  The structure is not copied; @caps
+ * becomes the owner of @structure.
+ *
+ * Since: 1.2
+ */
+void
+gst_caps_append_structure_full (GstCaps * caps, GstStructure * structure,
+    GstCapsFeatures * features)
+{
+  g_return_if_fail (GST_IS_CAPS (caps));
+  g_return_if_fail (IS_WRITABLE (caps));
+
+  if (G_LIKELY (structure)) {
+    gst_caps_append_structure_unchecked (caps, structure, features);
   }
 }
 
@@ -568,7 +663,7 @@ gst_caps_append_structure (GstCaps * caps, GstStructure * structure)
  * @caps: the #GstCaps to remove from
  * @idx: Index of the structure to remove
  *
- * removes the stucture with the given index from the list of structures
+ * removes the structure with the given index from the list of structures
  * contained in @caps.
  */
 void
@@ -597,6 +692,7 @@ GstCaps *
 gst_caps_merge_structure (GstCaps * caps, GstStructure * structure)
 {
   GstStructure *structure1;
+  GstCapsFeatures *features1;
   int i;
   gboolean unique = TRUE;
 
@@ -608,17 +704,85 @@ gst_caps_merge_structure (GstCaps * caps, GstStructure * structure)
   /* check each structure */
   for (i = GST_CAPS_LEN (caps) - 1; i >= 0; i--) {
     structure1 = gst_caps_get_structure_unchecked (caps, i);
-    /* if structure is a subset of structure1, then skip it */
-    if (gst_structure_is_subset (structure, structure1)) {
+    features1 = gst_caps_get_features_unchecked (caps, i);
+    if (!features1)
+      features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+
+    /* if structure is a subset of structure1 and the
+     * there are no existing features, then skip it */
+    if (gst_caps_features_is_equal (features1,
+            GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY)
+        && gst_structure_is_subset (structure, structure1)) {
       unique = FALSE;
       break;
     }
   }
   if (unique) {
     caps = gst_caps_make_writable (caps);
-    gst_caps_append_structure_unchecked (caps, structure);
+    gst_caps_append_structure_unchecked (caps, structure, NULL);
   } else {
     gst_structure_free (structure);
+  }
+  return caps;
+}
+
+/**
+ * gst_caps_merge_structure_full:
+ * @caps: (transfer full): the #GstCaps to merge into
+ * @structure: (transfer full): the #GstStructure to merge
+ * @features: (transfer full) (allow-none): the #GstCapsFeatures to merge
+ *
+ * Appends @structure with @features to @caps if its not already expressed by @caps.
+ *
+ * Returns: (transfer full): the merged caps.
+ *
+ * Since: 1.2
+ */
+GstCaps *
+gst_caps_merge_structure_full (GstCaps * caps, GstStructure * structure,
+    GstCapsFeatures * features)
+{
+  GstStructure *structure1;
+  GstCapsFeatures *features1, *features_tmp;
+  int i;
+  gboolean unique = TRUE;
+
+  g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
+
+  if (G_UNLIKELY (structure == NULL))
+    return caps;
+
+  /* To make comparisons easier below */
+  features_tmp = features ? features : GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+
+  /* check each structure */
+  for (i = GST_CAPS_LEN (caps) - 1; i >= 0; i--) {
+    structure1 = gst_caps_get_structure_unchecked (caps, i);
+    features1 = gst_caps_get_features_unchecked (caps, i);
+    if (!features1)
+      features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+    /* if structure is a subset of structure1 and the
+     * the features are a subset, then skip it */
+    /* FIXME: We only skip if none of the features are
+     * ANY and are still equal. That way all ANY structures
+     * show up in the caps and no non-ANY structures are
+     * swallowed by ANY structures
+     */
+    if (((!gst_caps_features_is_any (features_tmp)
+                || gst_caps_features_is_any (features1))
+            && gst_caps_features_is_equal (features_tmp, features1))
+        && gst_structure_is_subset (structure, structure1)) {
+      unique = FALSE;
+      break;
+    }
+  }
+  if (unique) {
+    caps = gst_caps_make_writable (caps);
+    gst_caps_append_structure_unchecked (caps, structure, features);
+  } else {
+    gst_structure_free (structure);
+    if (features)
+      gst_caps_features_free (features);
   }
   return caps;
 }
@@ -672,6 +836,96 @@ gst_caps_get_structure (const GstCaps * caps, guint index)
 }
 
 /**
+ * gst_caps_get_features:
+ * @caps: a #GstCaps
+ * @index: the index of the structure
+ *
+ * Finds the features in @caps that has the index @index, and
+ * returns it.
+ *
+ * WARNING: This function takes a const GstCaps *, but returns a
+ * non-const GstCapsFeatures *.  This is for programming convenience --
+ * the caller should be aware that structures inside a constant
+ * #GstCaps should not be modified. However, if you know the caps
+ * are writable, either because you have just copied them or made
+ * them writable with gst_caps_make_writable(), you may modify the
+ * features returned in the usual way, e.g. with functions like
+ * gst_caps_features_add().
+ *
+ * You do not need to free or unref the structure returned, it
+ * belongs to the #GstCaps.
+ *
+ * Returns: (transfer none): a pointer to the #GstCapsFeatures corresponding
+ *     to @index
+ *
+ * Since: 1.2
+ */
+GstCapsFeatures *
+gst_caps_get_features (const GstCaps * caps, guint index)
+{
+  GstCapsFeatures *features;
+
+  g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
+  g_return_val_if_fail (index < GST_CAPS_LEN (caps), NULL);
+
+  features = gst_caps_get_features_unchecked (caps, index);
+  if (!features) {
+    GstCapsFeatures **storage;
+
+    /* We have to do some atomic pointer magic here as the caps
+     * might not be writable and someone else calls this function
+     * at the very same time */
+    features = gst_caps_features_copy (GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY);
+    gst_caps_features_set_parent_refcount (features, &GST_CAPS_REFCOUNT (caps));
+
+    storage = gst_caps_get_features_storage_unchecked (caps, index);
+    if (!g_atomic_pointer_compare_and_exchange (storage, NULL, features)) {
+      /* Someone did the same we just tried in the meantime */
+      gst_caps_features_set_parent_refcount (features, NULL);
+      gst_caps_features_free (features);
+
+      features = gst_caps_get_features_unchecked (caps, index);
+      g_assert (features != NULL);
+    }
+  }
+
+  return features;
+}
+
+/**
+ * gst_caps_set_features:
+ * @caps: a #GstCaps
+ * @index: the index of the structure
+ * @features: (allow-none) (transfer full): the #GstCapsFeatures to set
+ *
+ * Sets the #GstCapsFeatures @features for the structure at @index.
+ *
+ * Since: 1.2
+ */
+void
+gst_caps_set_features (GstCaps * caps, guint index, GstCapsFeatures * features)
+{
+  GstCapsFeatures **storage, *old;
+
+  g_return_if_fail (caps != NULL);
+  g_return_if_fail (index <= gst_caps_get_size (caps));
+  g_return_if_fail (IS_WRITABLE (caps));
+
+  storage = gst_caps_get_features_storage_unchecked (caps, index);
+  /* Not much problem here as caps are writable */
+  old = g_atomic_pointer_get (storage);
+  g_atomic_pointer_set (storage, features);
+
+  if (features)
+    gst_caps_features_set_parent_refcount (features, &GST_CAPS_REFCOUNT (caps));
+
+  if (old) {
+    gst_caps_features_set_parent_refcount (old, NULL);
+    gst_caps_features_free (old);
+  }
+}
+
+/**
  * gst_caps_copy_nth:
  * @caps: the #GstCaps to copy
  * @nth: the nth structure to copy
@@ -686,6 +940,7 @@ gst_caps_copy_nth (const GstCaps * caps, guint nth)
 {
   GstCaps *newcaps;
   GstStructure *structure;
+  GstCapsFeatures *features;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
 
@@ -694,8 +949,10 @@ gst_caps_copy_nth (const GstCaps * caps, guint nth)
 
   if (G_LIKELY (GST_CAPS_LEN (caps) > nth)) {
     structure = gst_caps_get_structure_unchecked (caps, nth);
+    features = gst_caps_get_features_unchecked (caps, nth);
     gst_caps_append_structure_unchecked (newcaps,
-        gst_structure_copy (structure));
+        gst_structure_copy (structure),
+        gst_caps_features_copy_conditional (features));
   }
 
   return newcaps;
@@ -707,6 +964,10 @@ gst_caps_copy_nth (const GstCaps * caps, guint nth)
  *
  * Discard all but the first structure from @caps. Useful when
  * fixating.
+ *
+ * This function takes ownership of @caps and will call gst_caps_make_writable()
+ * on it if necessary, so you must not use @caps afterwards unless you keep an
+ * additional reference to it with gst_caps_ref().
  *
  * Returns: (transfer full): truncated caps
  */
@@ -762,7 +1023,7 @@ gst_caps_set_value (GstCaps * caps, const char *field, const GValue * value)
  * @varargs: additional parameters
  *
  * Sets fields in a #GstCaps.  The arguments must be passed in the same
- * manner as gst_structure_set(), and be NULL-terminated.
+ * manner as gst_structure_set(), and be %NULL-terminated.
  */
 void
 gst_caps_set_simple_valist (GstCaps * caps, const char *field, va_list varargs)
@@ -799,7 +1060,7 @@ gst_caps_set_simple_valist (GstCaps * caps, const char *field, va_list varargs)
  * @...: additional parameters
  *
  * Sets fields in a #GstCaps.  The arguments must be passed in the same
- * manner as gst_structure_set(), and be NULL-terminated.
+ * manner as gst_structure_set(), and be %NULL-terminated.
  */
 void
 gst_caps_set_simple (GstCaps * caps, const char *field, ...)
@@ -822,7 +1083,7 @@ gst_caps_set_simple (GstCaps * caps, const char *field, ...)
  *
  * Determines if @caps represents any media format.
  *
- * Returns: TRUE if @caps represents any format.
+ * Returns: %TRUE if @caps represents any format.
  */
 gboolean
 gst_caps_is_any (const GstCaps * caps)
@@ -838,7 +1099,7 @@ gst_caps_is_any (const GstCaps * caps)
  *
  * Determines if @caps represents no media formats.
  *
- * Returns: TRUE if @caps represents no formats.
+ * Returns: %TRUE if @caps represents no formats.
  */
 gboolean
 gst_caps_is_empty (const GstCaps * caps)
@@ -866,16 +1127,21 @@ gst_caps_is_fixed_foreach (GQuark field_id, const GValue * value,
  * one structure, and each field in the structure describes a fixed type.
  * Examples of non-fixed types are GST_TYPE_INT_RANGE and GST_TYPE_LIST.
  *
- * Returns: TRUE if @caps is fixed
+ * Returns: %TRUE if @caps is fixed
  */
 gboolean
 gst_caps_is_fixed (const GstCaps * caps)
 {
   GstStructure *structure;
+  GstCapsFeatures *features;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), FALSE);
 
   if (GST_CAPS_LEN (caps) != 1)
+    return FALSE;
+
+  features = gst_caps_get_features_unchecked (caps, 0);
+  if (features && gst_caps_features_is_any (features))
     return FALSE;
 
   structure = gst_caps_get_structure_unchecked (caps, 0);
@@ -891,20 +1157,28 @@ gst_caps_is_fixed (const GstCaps * caps)
  * Tests if two #GstCaps are equal.  This function only works on fixed
  * #GstCaps.
  *
- * Returns: TRUE if the arguments represent the same format
+ * Returns: %TRUE if the arguments represent the same format
  */
 gboolean
 gst_caps_is_equal_fixed (const GstCaps * caps1, const GstCaps * caps2)
 {
   GstStructure *struct1, *struct2;
+  GstCapsFeatures *features1, *features2;
 
   g_return_val_if_fail (gst_caps_is_fixed (caps1), FALSE);
   g_return_val_if_fail (gst_caps_is_fixed (caps2), FALSE);
 
   struct1 = gst_caps_get_structure_unchecked (caps1, 0);
+  features1 = gst_caps_get_features_unchecked (caps1, 0);
+  if (!features1)
+    features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
   struct2 = gst_caps_get_structure_unchecked (caps2, 0);
+  features2 = gst_caps_get_features_unchecked (caps2, 0);
+  if (!features2)
+    features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
 
-  return gst_structure_is_equal (struct1, struct2);
+  return gst_structure_is_equal (struct1, struct2) &&
+      gst_caps_features_is_equal (features1, features2);
 }
 
 /**
@@ -916,7 +1190,7 @@ gst_caps_is_equal_fixed (const GstCaps * caps1, const GstCaps * caps2)
  * every media format that is in the first is also contained in the
  * second.  That is, @caps1 is a subset of @caps2.
  *
- * Returns: TRUE if @caps1 is a subset of @caps2.
+ * Returns: %TRUE if @caps1 is a subset of @caps2.
  */
 gboolean
 gst_caps_is_always_compatible (const GstCaps * caps1, const GstCaps * caps2)
@@ -933,8 +1207,6 @@ gst_caps_is_always_compatible (const GstCaps * caps1, const GstCaps * caps2)
  * @superset: a potentially greater #GstCaps
  *
  * Checks if all caps represented by @subset are also represented by @superset.
- * <note>This function does not work reliably if optional properties for caps
- * are included on one caps and omitted on the other.</note>
  *
  * Returns: %TRUE if @subset is a subset of @superset
  */
@@ -942,6 +1214,7 @@ gboolean
 gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
 {
   GstStructure *s1, *s2;
+  GstCapsFeatures *f1, *f2;
   gboolean ret = TRUE;
   gint i, j;
 
@@ -956,8 +1229,16 @@ gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
   for (i = GST_CAPS_LEN (subset) - 1; i >= 0; i--) {
     for (j = GST_CAPS_LEN (superset) - 1; j >= 0; j--) {
       s1 = gst_caps_get_structure_unchecked (subset, i);
+      f1 = gst_caps_get_features_unchecked (subset, i);
+      if (!f1)
+        f1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
       s2 = gst_caps_get_structure_unchecked (superset, j);
-      if (gst_structure_is_subset (s1, s2)) {
+      f2 = gst_caps_get_features_unchecked (superset, j);
+      if (!f2)
+        f2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+      if ((!gst_caps_features_is_any (f1) || gst_caps_features_is_any (f2)) &&
+          gst_caps_features_is_equal (f1, f2)
+          && gst_structure_is_subset (s1, s2)) {
         /* If we found a superset, continue with the next
          * subset structure */
         break;
@@ -1011,15 +1292,61 @@ gst_caps_is_subset_structure (const GstCaps * caps,
 }
 
 /**
+ * gst_caps_is_subset_structure_full:
+ * @caps: a #GstCaps
+ * @structure: a potential #GstStructure subset of @caps
+ * @features: (allow-none): a #GstCapsFeatures for @structure
+ *
+ * Checks if @structure is a subset of @caps. See gst_caps_is_subset()
+ * for more information.
+ *
+ * Returns: %TRUE if @structure is a subset of @caps
+ *
+ * Since: 1.2
+ */
+gboolean
+gst_caps_is_subset_structure_full (const GstCaps * caps,
+    const GstStructure * structure, const GstCapsFeatures * features)
+{
+  GstStructure *s;
+  GstCapsFeatures *f;
+  gint i;
+
+  g_return_val_if_fail (caps != NULL, FALSE);
+  g_return_val_if_fail (structure != NULL, FALSE);
+
+  if (CAPS_IS_ANY (caps))
+    return TRUE;
+  if (CAPS_IS_EMPTY (caps))
+    return FALSE;
+
+  if (!features)
+    features = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+
+  for (i = GST_CAPS_LEN (caps) - 1; i >= 0; i--) {
+    s = gst_caps_get_structure_unchecked (caps, i);
+    f = gst_caps_get_features_unchecked (caps, i);
+    if (!f)
+      f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+    if ((!gst_caps_features_is_any (features) || gst_caps_features_is_any (f))
+        && gst_caps_features_is_equal (features, f)
+        && gst_structure_is_subset (structure, s)) {
+      /* If we found a superset return TRUE */
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
  * gst_caps_is_equal:
  * @caps1: a #GstCaps
  * @caps2: another #GstCaps
  *
  * Checks if the given caps represent the same set of caps.
- * <note>This function does not work reliably if optional properties for caps
- * are included on one caps and omitted on the other.</note>
  *
- * Returns: TRUE if both caps are equal.
+ * Returns: %TRUE if both caps are equal.
  */
 gboolean
 gst_caps_is_equal (const GstCaps * caps1, const GstCaps * caps2)
@@ -1043,12 +1370,14 @@ gst_caps_is_equal (const GstCaps * caps1, const GstCaps * caps2)
  *
  * Checks if the given caps are exactly the same set of caps.
  *
- * Returns: TRUE if both caps are strictly equal.
+ * Returns: %TRUE if both caps are strictly equal.
  */
 gboolean
 gst_caps_is_strictly_equal (const GstCaps * caps1, const GstCaps * caps2)
 {
   int i;
+  GstStructure *s1, *s2;
+  GstCapsFeatures *f1, *f2;
 
   g_return_val_if_fail (GST_IS_CAPS (caps1), FALSE);
   g_return_val_if_fail (GST_IS_CAPS (caps2), FALSE);
@@ -1060,8 +1389,18 @@ gst_caps_is_strictly_equal (const GstCaps * caps1, const GstCaps * caps2)
     return FALSE;
 
   for (i = 0; i < GST_CAPS_LEN (caps1); i++) {
-    if (!gst_structure_is_equal (gst_caps_get_structure_unchecked (caps1, i),
-            gst_caps_get_structure_unchecked (caps2, i)))
+    s1 = gst_caps_get_structure_unchecked (caps1, i);
+    f1 = gst_caps_get_features_unchecked (caps1, i);
+    if (!f1)
+      f1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+    s2 = gst_caps_get_structure_unchecked (caps2, i);
+    f2 = gst_caps_get_features_unchecked (caps2, i);
+    if (!f2)
+      f2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+
+    if (gst_caps_features_is_any (f1) != gst_caps_features_is_any (f2) ||
+        !gst_caps_features_is_equal (f1, f2) ||
+        !gst_structure_is_equal (s1, s2))
       return FALSE;
   }
 
@@ -1087,6 +1426,8 @@ gst_caps_can_intersect (const GstCaps * caps1, const GstCaps * caps2)
   guint j, k, len1, len2;
   GstStructure *struct1;
   GstStructure *struct2;
+  GstCapsFeatures *features1;
+  GstCapsFeatures *features2;
 
   g_return_val_if_fail (GST_IS_CAPS (caps1), FALSE);
   g_return_val_if_fail (GST_IS_CAPS (caps2), FALSE);
@@ -1123,19 +1464,24 @@ gst_caps_can_intersect (const GstCaps * caps1, const GstCaps * caps2)
   len1 = GST_CAPS_LEN (caps1);
   len2 = GST_CAPS_LEN (caps2);
   for (i = 0; i < len1 + len2 - 1; i++) {
-    /* superset index goes from 0 to sgst_caps_structure_intersectuperset->structs->len-1 */
+    /* superset index goes from 0 to superset->structs->len-1 */
     j = MIN (i, len1 - 1);
     /* subset index stays 0 until i reaches superset->structs->len, then it
      * counts up from 1 to subset->structs->len - 1 */
     k = (i > j) ? (i - j) : 0;  /* MAX (0, i - j) */
-
     /* now run the diagonal line, end condition is the left or bottom
      * border */
     while (k < len2) {
       struct1 = gst_caps_get_structure_unchecked (caps1, j);
+      features1 = gst_caps_get_features_unchecked (caps1, j);
+      if (!features1)
+        features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
       struct2 = gst_caps_get_structure_unchecked (caps2, k);
-
-      if (gst_structure_can_intersect (struct1, struct2)) {
+      features2 = gst_caps_get_features_unchecked (caps2, k);
+      if (!features2)
+        features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+      if (gst_caps_features_is_equal (features1, features2) &&
+          gst_structure_can_intersect (struct1, struct2)) {
         return TRUE;
       }
       /* move down left */
@@ -1145,6 +1491,7 @@ gst_caps_can_intersect (const GstCaps * caps1, const GstCaps * caps2)
       j--;
     }
   }
+
   return FALSE;
 }
 
@@ -1153,9 +1500,10 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
 {
   guint64 i;                    /* index can be up to 2 * G_MAX_UINT */
   guint j, k, len1, len2;
-
   GstStructure *struct1;
   GstStructure *struct2;
+  GstCapsFeatures *features1;
+  GstCapsFeatures *features2;
   GstCaps *dest;
   GstStructure *istruct;
 
@@ -1170,11 +1518,11 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
   /* one of the caps is any, just copy the other caps */
   if (G_UNLIKELY (CAPS_IS_ANY (caps1)))
     return gst_caps_ref (caps2);
+
   if (G_UNLIKELY (CAPS_IS_ANY (caps2)))
     return gst_caps_ref (caps1);
 
   dest = gst_caps_new_empty ();
-
   /* run zigzag on top line then right line, this preserves the caps order
    * much better than a simple loop.
    *
@@ -1199,16 +1547,30 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
     /* caps2 index stays 0 until i reaches GST_CAPS_LEN (caps1), then it counts
      * up from 1 to GST_CAPS_LEN (caps2) - 1 */
     k = (i > j) ? (i - j) : 0;  /* MAX (0, i - j) */
-
     /* now run the diagonal line, end condition is the left or bottom
      * border */
     while (k < len2) {
       struct1 = gst_caps_get_structure_unchecked (caps1, j);
+      features1 = gst_caps_get_features_unchecked (caps1, j);
+      if (!features1)
+        features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
       struct2 = gst_caps_get_structure_unchecked (caps2, k);
-
-      istruct = gst_structure_intersect (struct1, struct2);
-
-      dest = gst_caps_merge_structure (dest, istruct);
+      features2 = gst_caps_get_features_unchecked (caps2, k);
+      if (!features2)
+        features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+      if (gst_caps_features_is_equal (features1, features2)) {
+        istruct = gst_structure_intersect (struct1, struct2);
+        if (istruct) {
+          if (gst_caps_features_is_any (features1))
+            dest =
+                gst_caps_merge_structure_full (dest, istruct,
+                gst_caps_features_copy_conditional (features2));
+          else
+            dest =
+                gst_caps_merge_structure_full (dest, istruct,
+                gst_caps_features_copy_conditional (features1));
+        }
+      }
       /* move down left */
       k++;
       if (G_UNLIKELY (j == 0))
@@ -1230,16 +1592,17 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
  * Unlike @gst_caps_intersect, the returned caps will be ordered in a similar
  * fashion as @caps1.
  *
- * Returns: the new #GstCaps
+ * Returns: (transfer full): the new #GstCaps
  */
 static GstCaps *
 gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
 {
   guint i;
   guint j, len1, len2;
-
   GstStructure *struct1;
   GstStructure *struct2;
+  GstCapsFeatures *features1;
+  GstCapsFeatures *features2;
   GstCaps *dest;
   GstStructure *istruct;
 
@@ -1254,20 +1617,36 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
   /* one of the caps is any, just copy the other caps */
   if (G_UNLIKELY (CAPS_IS_ANY (caps1)))
     return gst_caps_ref (caps2);
+
   if (G_UNLIKELY (CAPS_IS_ANY (caps2)))
     return gst_caps_ref (caps1);
 
   dest = gst_caps_new_empty ();
-
   len1 = GST_CAPS_LEN (caps1);
   len2 = GST_CAPS_LEN (caps2);
   for (i = 0; i < len1; i++) {
     struct1 = gst_caps_get_structure_unchecked (caps1, i);
+    features1 = gst_caps_get_features_unchecked (caps1, i);
+    if (!features1)
+      features1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
     for (j = 0; j < len2; j++) {
       struct2 = gst_caps_get_structure_unchecked (caps2, j);
-      istruct = gst_structure_intersect (struct1, struct2);
-      if (istruct)
-        dest = gst_caps_merge_structure (dest, istruct);
+      features2 = gst_caps_get_features_unchecked (caps2, j);
+      if (!features2)
+        features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+      if (gst_caps_features_is_equal (features1, features2)) {
+        istruct = gst_structure_intersect (struct1, struct2);
+        if (istruct) {
+          if (gst_caps_features_is_any (features1))
+            dest =
+                gst_caps_merge_structure_full (dest, istruct,
+                gst_caps_features_copy_conditional (features2));
+          else
+            dest =
+                gst_caps_merge_structure_full (dest, istruct,
+                gst_caps_features_copy_conditional (features1));
+        }
+      }
     }
   }
 
@@ -1284,7 +1663,7 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
  * to both @caps1 and @caps2, the order is defined by the #GstCapsIntersectMode
  * used.
  *
- * Returns: the new #GstCaps
+ * Returns: (transfer full): the new #GstCaps
  */
 GstCaps *
 gst_caps_intersect_full (GstCaps * caps1, GstCaps * caps2,
@@ -1312,7 +1691,7 @@ gst_caps_intersect_full (GstCaps * caps1, GstCaps * caps2,
  * Creates a new #GstCaps that contains all the formats that are common
  * to both @caps1 and @caps2. Defaults to %GST_CAPS_INTERSECT_ZIG_ZAG mode.
  *
- * Returns: the new #GstCaps
+ * Returns: (transfer full): the new #GstCaps
  */
 GstCaps *
 gst_caps_intersect (GstCaps * caps1, GstCaps * caps2)
@@ -1320,15 +1699,13 @@ gst_caps_intersect (GstCaps * caps1, GstCaps * caps2)
   return gst_caps_intersect_full (caps1, caps2, GST_CAPS_INTERSECT_ZIG_ZAG);
 }
 
-
 /* subtract operation */
 
 typedef struct
 {
   const GstStructure *subtract_from;
   GSList *put_into;
-}
-SubtractionEntry;
+} SubtractionEntry;
 
 static gboolean
 gst_caps_structure_subtract_field (GQuark field_id, const GValue * value,
@@ -1340,18 +1717,20 @@ gst_caps_structure_subtract_field (GQuark field_id, const GValue * value,
   GstStructure *structure;
 
   other = gst_structure_id_get_value (e->subtract_from, field_id);
+
   if (!other) {
     return FALSE;
   }
+
   if (!gst_value_subtract (&subtraction, other, value))
     return TRUE;
+
   if (gst_value_compare (&subtraction, other) == GST_VALUE_EQUAL) {
     g_value_unset (&subtraction);
     return FALSE;
   } else {
     structure = gst_structure_copy (e->subtract_from);
-    gst_structure_id_set_value (structure, field_id, &subtraction);
-    g_value_unset (&subtraction);
+    gst_structure_id_take_value (structure, field_id, &subtraction);
     e->put_into = g_slist_prepend (e->put_into, structure);
     return TRUE;
   }
@@ -1366,9 +1745,9 @@ gst_caps_structure_subtract (GSList ** into, const GstStructure * minuend,
 
   e.subtract_from = minuend;
   e.put_into = NULL;
-
   ret = gst_structure_foreach ((GstStructure *) subtrahend,
       gst_caps_structure_subtract_field, &e);
+
   if (ret) {
     *into = e.put_into;
   } else {
@@ -1379,6 +1758,7 @@ gst_caps_structure_subtract (GSList ** into, const GstStructure * minuend,
     }
     g_slist_free (e.put_into);
   }
+
   return ret;
 }
 
@@ -1391,7 +1771,7 @@ gst_caps_structure_subtract (GSList ** into, const GstStructure * minuend,
  * <note>This function does not work reliably if optional properties for caps
  * are included on one caps and omitted on the other.</note>
  *
- * Returns: the resulting caps
+ * Returns: (transfer full): the resulting caps
  */
 GstCaps *
 gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
@@ -1399,6 +1779,7 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
   guint i, j, sublen;
   GstStructure *min;
   GstStructure *sub;
+  GstCapsFeatures *min_f, *sub_f;
   GstCaps *dest = NULL, *src;
 
   g_return_val_if_fail (minuend != NULL, NULL);
@@ -1407,6 +1788,7 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
   if (CAPS_IS_EMPTY (minuend) || CAPS_IS_ANY (subtrahend)) {
     return gst_caps_new_empty ();
   }
+
   if (CAPS_IS_EMPTY_SIMPLE (subtrahend))
     return gst_caps_ref (minuend);
 
@@ -1415,6 +1797,7 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
      ANY means for specific types, so it's not possible to reduce ANY partially
      You can only remove everything or nothing and that is done above.
      Note: there's a test that checks this behaviour. */
+
   g_return_val_if_fail (!CAPS_IS_ANY (minuend), NULL);
   sublen = GST_CAPS_LEN (subtrahend);
   g_assert (sublen > 0);
@@ -1424,6 +1807,9 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
     guint srclen;
 
     sub = gst_caps_get_structure_unchecked (subtrahend, i);
+    sub_f = gst_caps_get_features_unchecked (subtrahend, i);
+    if (!sub_f)
+      sub_f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
     if (dest) {
       gst_caps_unref (src);
       src = dest;
@@ -1432,7 +1818,15 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
     srclen = GST_CAPS_LEN (src);
     for (j = 0; j < srclen; j++) {
       min = gst_caps_get_structure_unchecked (src, j);
-      if (gst_structure_get_name_id (min) == gst_structure_get_name_id (sub)) {
+      min_f = gst_caps_get_features_unchecked (src, j);
+      if (!min_f)
+        min_f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+
+      /* Same reason as above for ANY caps */
+      g_return_val_if_fail (!gst_caps_features_is_any (min_f), NULL);
+
+      if (gst_structure_get_name_id (min) == gst_structure_get_name_id (sub) &&
+          gst_caps_features_is_equal (min_f, sub_f)) {
         GSList *list;
 
         if (gst_caps_structure_subtract (&list, min, sub)) {
@@ -1440,16 +1834,20 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
 
           for (walk = list; walk; walk = g_slist_next (walk)) {
             gst_caps_append_structure_unchecked (dest,
-                (GstStructure *) walk->data);
+                (GstStructure *) walk->data,
+                gst_caps_features_copy_conditional (min_f));
           }
           g_slist_free (list);
         } else {
-          gst_caps_append_structure_unchecked (dest, gst_structure_copy (min));
+          gst_caps_append_structure_unchecked (dest, gst_structure_copy (min),
+              gst_caps_features_copy_conditional (min_f));
         }
       } else {
-        gst_caps_append_structure_unchecked (dest, gst_structure_copy (min));
+        gst_caps_append_structure_unchecked (dest, gst_structure_copy (min),
+            gst_caps_features_copy_conditional (min_f));
       }
     }
+
     if (CAPS_IS_EMPTY_SIMPLE (dest)) {
       gst_caps_unref (src);
       return dest;
@@ -1458,6 +1856,7 @@ gst_caps_subtract (GstCaps * minuend, GstCaps * subtrahend)
 
   gst_caps_unref (src);
   dest = gst_caps_simplify (dest);
+
   return dest;
 }
 
@@ -1467,8 +1866,8 @@ typedef struct _NormalizeForeach
 {
   GstCaps *caps;
   GstStructure *structure;
-}
-NormalizeForeach;
+  GstCapsFeatures *features;
+} NormalizeForeach;
 
 static gboolean
 gst_caps_normalize_foreach (GQuark field_id, const GValue * value, gpointer ptr)
@@ -1479,20 +1878,21 @@ gst_caps_normalize_foreach (GQuark field_id, const GValue * value, gpointer ptr)
 
   if (G_VALUE_TYPE (value) == GST_TYPE_LIST) {
     guint len = gst_value_list_get_size (value);
+
     for (i = 1; i < len; i++) {
       const GValue *v = gst_value_list_get_value (value, i);
       GstStructure *structure = gst_structure_copy (nf->structure);
 
       gst_structure_id_set_value (structure, field_id, v);
-      gst_caps_append_structure_unchecked (nf->caps, structure);
+      gst_caps_append_structure_unchecked (nf->caps, structure,
+          gst_caps_features_copy_conditional (nf->features));
     }
 
     gst_value_init_and_copy (&val, gst_value_list_get_value (value, 0));
-    gst_structure_id_set_value (nf->structure, field_id, &val);
-    g_value_unset (&val);
-
+    gst_structure_id_take_value (nf->structure, field_id, &val);
     return FALSE;
   }
+
   return TRUE;
 }
 
@@ -1504,7 +1904,9 @@ gst_caps_normalize_foreach (GQuark field_id, const GValue * value, gpointer ptr)
  * @caps, but contains no lists.  Each list is expanded into separate
  * @GstStructures.
  *
- * This function takes ownership of @caps.
+ * This function takes ownership of @caps and will call gst_caps_make_writable()
+ * on it so you must not use @caps afterwards unless you keep an additional
+ * reference to it with gst_caps_ref().
  *
  * Returns: (transfer full): the normalized #GstCaps
  */
@@ -1517,12 +1919,11 @@ gst_caps_normalize (GstCaps * caps)
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
 
   caps = gst_caps_make_writable (caps);
-
   nf.caps = caps;
 
   for (i = 0; i < gst_caps_get_size (nf.caps); i++) {
     nf.structure = gst_caps_get_structure_unchecked (nf.caps, i);
-
+    nf.features = gst_caps_get_features_unchecked (nf.caps, i);
     while (!gst_structure_foreach (nf.structure,
             gst_caps_normalize_foreach, &nf));
   }
@@ -1534,13 +1935,14 @@ static gint
 gst_caps_compare_structures (gconstpointer one, gconstpointer two)
 {
   gint ret;
-  const GstStructure *struct1 = *((const GstStructure **) one);
-  const GstStructure *struct2 = *((const GstStructure **) two);
+  const GstStructure *struct1 = ((const GstCapsArrayElement *) one)->structure;
+  const GstStructure *struct2 = ((const GstCapsArrayElement *) two)->structure;
 
   /* FIXME: this orders alphabetically, but ordering the quarks might be faster
      So what's the best way? */
   ret = strcmp (gst_structure_get_name (struct1),
       gst_structure_get_name (struct2));
+
   if (ret)
     return ret;
 
@@ -1552,8 +1954,7 @@ typedef struct
   GQuark name;
   GValue value;
   GstStructure *compare;
-}
-UnionField;
+} UnionField;
 
 static gboolean
 gst_caps_structure_figure_out_union (GQuark field_id, const GValue * value,
@@ -1567,14 +1968,18 @@ gst_caps_structure_figure_out_union (GQuark field_id, const GValue * value,
       g_value_unset (&u->value);
     return FALSE;
   }
+
   if (gst_value_compare (val, value) == GST_VALUE_EQUAL)
     return TRUE;
+
   if (u->name) {
     g_value_unset (&u->value);
     return FALSE;
   }
+
   u->name = field_id;
   gst_value_union (&u->value, val, value);
+
   return TRUE;
 }
 
@@ -1611,12 +2016,14 @@ gst_caps_structure_simplify (GstStructure ** result,
      * but at most one field: field.name */
     if (G_IS_VALUE (&field.value)) {
       if (gst_structure_n_fields (simplify) == gst_structure_n_fields (compare)) {
-        gst_structure_id_set_value (compare, field.name, &field.value);
+        gst_structure_id_take_value (compare, field.name, &field.value);
         *result = NULL;
         ret = TRUE;
+      } else {
+        g_value_unset (&field.value);
       }
-      g_value_unset (&field.value);
-    } else if (gst_structure_n_fields (simplify) <=
+    } else
+        if (gst_structure_n_fields (simplify) <=
         gst_structure_n_fields (compare)) {
       /* compare is just more specific, will be optimized away later */
       /* FIXME: do this here? */
@@ -1644,7 +2051,7 @@ gst_caps_switch_structures (GstCaps * caps, GstStructure * old,
   gst_structure_set_parent_refcount (old, NULL);
   gst_structure_free (old);
   gst_structure_set_parent_refcount (new, &GST_CAPS_REFCOUNT (caps));
-  g_ptr_array_index (GST_CAPS_ARRAY (caps), i) = new;
+  g_array_index (GST_CAPS_ARRAY (caps), GstCapsArrayElement, i).structure = new;
 }
 
 /**
@@ -1656,14 +2063,19 @@ gst_caps_switch_structures (GstCaps * caps, GstStructure * old,
  * identical are merged.  Component structures that have values that can be
  * merged are also merged.
  *
+ * This function takes ownership of @caps and will call gst_caps_make_writable()
+ * on it if necessary, so you must not use @caps afterwards unless you keep an
+ * additional reference to it with gst_caps_ref().
+ *
  * This method does not preserve the original order of @caps.
  *
- * Returns: The simplified caps.
+ * Returns: (transfer full): The simplified caps.
  */
 GstCaps *
 gst_caps_simplify (GstCaps * caps)
 {
   GstStructure *simplify, *compare, *result = NULL;
+  GstCapsFeatures *simplify_f, *compare_f;
   gint i, j, start;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
@@ -1675,20 +2087,31 @@ gst_caps_simplify (GstCaps * caps)
 
   caps = gst_caps_make_writable (caps);
 
-  g_ptr_array_sort (GST_CAPS_ARRAY (caps), gst_caps_compare_structures);
+  g_array_sort (GST_CAPS_ARRAY (caps), gst_caps_compare_structures);
 
   for (i = start; i >= 0; i--) {
     simplify = gst_caps_get_structure_unchecked (caps, i);
+    simplify_f = gst_caps_get_features_unchecked (caps, i);
+    if (!simplify_f)
+      simplify_f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
     compare = gst_caps_get_structure_unchecked (caps, start);
+    compare_f = gst_caps_get_features_unchecked (caps, start);
+    if (!compare_f)
+      compare_f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
     if (gst_structure_get_name_id (simplify) !=
-        gst_structure_get_name_id (compare))
+        gst_structure_get_name_id (compare) ||
+        !gst_caps_features_is_equal (simplify_f, compare_f))
       start = i;
     for (j = start; j >= 0; j--) {
       if (j == i)
         continue;
       compare = gst_caps_get_structure_unchecked (caps, j);
+      compare_f = gst_caps_get_features_unchecked (caps, j);
+      if (!compare_f)
+        compare_f = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
       if (gst_structure_get_name_id (simplify) !=
-          gst_structure_get_name_id (compare)) {
+          gst_structure_get_name_id (compare) ||
+          !gst_caps_features_is_equal (simplify_f, compare_f)) {
         break;
       }
       if (gst_caps_structure_simplify (&result, simplify, compare)) {
@@ -1714,12 +2137,17 @@ gst_caps_simplify (GstCaps * caps)
  * values. First the caps will be truncated and then the first structure will be
  * fixated with gst_structure_fixate().
  *
+ * This function takes ownership of @caps and will call gst_caps_make_writable()
+ * on it so you must not use @caps afterwards unless you keep an additional
+ * reference to it with gst_caps_ref().
+ *
  * Returns: (transfer full): the fixated caps
  */
 GstCaps *
 gst_caps_fixate (GstCaps * caps)
 {
   GstStructure *s;
+  GstCapsFeatures *f;
 
   g_return_val_if_fail (GST_IS_CAPS (caps), NULL);
 
@@ -1728,6 +2156,13 @@ gst_caps_fixate (GstCaps * caps)
   caps = gst_caps_make_writable (caps);
   s = gst_caps_get_structure (caps, 0);
   gst_structure_fixate (s);
+
+  /* Set features to sysmem if they're still ANY */
+  f = gst_caps_get_features_unchecked (caps, 0);
+  if (f && gst_caps_features_is_any (f)) {
+    f = gst_caps_features_new_empty ();
+    gst_caps_set_features (caps, 0, f);
+  }
 
   return caps;
 }
@@ -1742,10 +2177,13 @@ gst_caps_fixate (GstCaps * caps)
  * can be converted back to a #GstCaps by gst_caps_from_string().
  *
  * For debugging purposes its easier to do something like this:
- * |[
+ * |[<!-- language="C" -->
  * GST_LOG ("caps are %" GST_PTR_FORMAT, caps);
  * ]|
  * This prints the caps in human readable form.
+ *
+ * The current implementation of serialization will lead to unexpected results
+ * when there are nested #GstCaps / #GstStructure deeper than one level.
  *
  * Returns: (transfer full): a newly allocated string representing @caps.
  */
@@ -1775,14 +2213,20 @@ gst_caps_to_string (const GstCaps * caps)
   slen = 0;
   clen = GST_CAPS_LEN (caps);
   for (i = 0; i < clen; i++) {
+    GstCapsFeatures *f;
+
     slen +=
-        STRUCTURE_ESTIMATED_STRING_LEN (gst_caps_get_structure_unchecked (caps,
-            i));
+        STRUCTURE_ESTIMATED_STRING_LEN (gst_caps_get_structure_unchecked
+        (caps, i));
+    f = gst_caps_get_features_unchecked (caps, i);
+    if (f)
+      slen += FEATURES_ESTIMATED_STRING_LEN (f);
   }
 
   s = g_string_sized_new (slen);
   for (i = 0; i < clen; i++) {
     GstStructure *structure;
+    GstCapsFeatures *features;
 
     if (i > 0) {
       /* ';' is now added by gst_structure_to_string */
@@ -1790,6 +2234,16 @@ gst_caps_to_string (const GstCaps * caps)
     }
 
     structure = gst_caps_get_structure_unchecked (caps, i);
+    features = gst_caps_get_features_unchecked (caps, i);
+
+    g_string_append (s, gst_structure_get_name (structure));
+    if (features && (gst_caps_features_is_any (features)
+            || !gst_caps_features_is_equal (features,
+                GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) {
+      g_string_append_c (s, '(');
+      priv_gst_caps_features_append_to_gstring (features, s);
+      g_string_append_c (s, ')');
+    }
     priv_gst_structure_append_to_gstring (structure, s);
   }
   if (s->len && s->str[s->len - 1] == ';') {
@@ -1803,36 +2257,96 @@ static gboolean
 gst_caps_from_string_inplace (GstCaps * caps, const gchar * string)
 {
   GstStructure *structure;
-  gchar *s;
+  gchar *s, *copy, *end, *next, save;
 
   if (strcmp ("ANY", string) == 0) {
     GST_CAPS_FLAGS (caps) = GST_CAPS_FLAG_ANY;
     return TRUE;
   }
+
   if (strcmp ("EMPTY", string) == 0 || strcmp ("NONE", string) == 0) {
     return TRUE;
   }
 
-  structure = gst_structure_from_string (string, &s);
-  if (structure == NULL) {
-    return FALSE;
-  }
-  gst_caps_append_structure_unchecked (caps, structure);
-
+  copy = s = g_strdup (string);
   do {
+    GstCapsFeatures *features = NULL;
 
     while (g_ascii_isspace (*s))
       s++;
     if (*s == '\0') {
       break;
     }
-    structure = gst_structure_from_string (s, &s);
-    if (structure == NULL) {
+
+    if (!priv_gst_structure_parse_name (s, &s, &end, &next)) {
+      g_free (copy);
       return FALSE;
     }
-    gst_caps_append_structure_unchecked (caps, structure);
 
+    save = *end;
+    *end = '\0';
+    structure = gst_structure_new_empty (s);
+    *end = save;
+
+    if (structure == NULL) {
+      g_free (copy);
+      return FALSE;
+    }
+
+    s = next;
+
+    if (*s == '\0') {
+      goto append;
+    }
+
+    if (*s == '(') {
+      s++;
+      end = s;
+
+      while (TRUE) {
+        if (*end == '\0') {
+          break;
+        } else if (*end == ')') {
+          break;
+        } else {
+          end++;
+        }
+      }
+
+      save = *end;
+      *end = '\0';
+      features = gst_caps_features_from_string (s);
+      if (!features) {
+        gst_structure_free (structure);
+        g_free (copy);
+        return FALSE;
+      }
+      *end = save;
+      s = end;
+      if (save == ')')
+        s++;
+    }
+
+    if (*s == '\0') {
+      goto append;
+    }
+
+    if (!priv_gst_structure_parse_fields (s, &s, structure)) {
+      gst_structure_free (structure);
+      if (features)
+        gst_caps_features_free (features);
+      g_free (copy);
+      return FALSE;
+    }
+
+  append:
+    gst_caps_append_structure_unchecked (caps, structure, features);
+    features = NULL;
+    if (*s == '\0')
+      break;
   } while (TRUE);
+
+  g_free (copy);
 
   return TRUE;
 }
@@ -1842,6 +2356,9 @@ gst_caps_from_string_inplace (GstCaps * caps, const gchar * string)
  * @string: a string to convert to #GstCaps
  *
  * Converts @caps from a string representation.
+ *
+ * The current implementation of serialization will lead to unexpected results
+ * when there are nested #GstCaps / #GstStructure deeper than one level.
  *
  * Returns: (transfer full): a newly allocated #GstCaps
  */
@@ -1872,4 +2389,152 @@ gst_caps_transform_to_string (const GValue * src_value, GValue * dest_value)
 
   g_value_take_string (dest_value,
       gst_caps_to_string (gst_value_get_caps (src_value)));
+}
+
+/**
+ * gst_caps_foreach:
+ * @caps: a #GstCaps
+ * @func: (scope call): a function to call for each field
+ * @user_data: (closure): private data
+ *
+ * Calls the provided function once for each structure and caps feature in the
+ * #GstCaps. The function must not modify the fields.
+ * Also see gst_caps_map_in_place() and gst_caps_filter_and_map_in_place().
+ *
+ * Returns: %TRUE if the supplied function returns %TRUE for each call,
+ * %FALSE otherwise.
+ *
+ * Since: 1.6
+ */
+gboolean
+gst_caps_foreach (const GstCaps * caps, GstCapsForeachFunc func,
+    gpointer user_data)
+{
+  guint i, n;
+  GstCapsFeatures *features;
+  GstStructure *structure;
+  gboolean ret;
+
+  g_return_val_if_fail (GST_IS_CAPS (caps), FALSE);
+  g_return_val_if_fail (func != NULL, FALSE);
+
+  n = GST_CAPS_LEN (caps);
+
+  for (i = 0; i < n; i++) {
+    features = gst_caps_get_features_unchecked (caps, i);
+    structure = gst_caps_get_structure_unchecked (caps, i);
+
+    ret = func (features, structure, user_data);
+    if (G_UNLIKELY (!ret))
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * gst_caps_map_in_place:
+ * @caps: a #GstCaps
+ * @func: (scope call): a function to call for each field
+ * @user_data: (closure): private data
+ *
+ * Calls the provided function once for each structure and caps feature in the
+ * #GstCaps. In contrast to gst_caps_foreach(), the function may modify but not
+ * delete the structures and features. The caps must be mutable.
+ *
+ * Returns: %TRUE if the supplied function returns %TRUE for each call,
+ * %FALSE otherwise.
+ *
+ * Since: 1.6
+ */
+gboolean
+gst_caps_map_in_place (GstCaps * caps, GstCapsMapFunc func, gpointer user_data)
+{
+  guint i, n;
+  GstCapsFeatures *features;
+  GstStructure *structure;
+  gboolean ret;
+
+  g_return_val_if_fail (GST_IS_CAPS (caps), FALSE);
+  g_return_val_if_fail (gst_caps_is_writable (caps), FALSE);
+  g_return_val_if_fail (func != NULL, FALSE);
+
+  n = GST_CAPS_LEN (caps);
+
+  for (i = 0; i < n; i++) {
+    features = gst_caps_get_features_unchecked (caps, i);
+    structure = gst_caps_get_structure_unchecked (caps, i);
+
+    /* Provide sysmem features if there are none yet */
+    if (!features) {
+      features =
+          gst_caps_features_copy (GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY);
+      gst_caps_set_features (caps, i, features);
+    }
+
+    ret = func (features, structure, user_data);
+    if (G_UNLIKELY (!ret))
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * gst_caps_filter_and_map_in_place:
+ * @caps: a #GstCaps
+ * @func: (scope call): a function to call for each field
+ * @user_data: (closure): private data
+ *
+ * Calls the provided function once for each structure and caps feature in the
+ * #GstCaps. In contrast to gst_caps_foreach(), the function may modify the
+ * structure and features. In contrast to gst_caps_filter_and_map_in_place(),
+ * the structure and features are removed from the caps if %FALSE is returned
+ * from the function.
+ * The caps must be mutable.
+ *
+ * Since: 1.6
+ */
+void
+gst_caps_filter_and_map_in_place (GstCaps * caps, GstCapsFilterMapFunc func,
+    gpointer user_data)
+{
+  guint i, n;
+  GstCapsFeatures *features;
+  GstStructure *structure;
+  gboolean ret;
+
+  g_return_if_fail (GST_IS_CAPS (caps));
+  g_return_if_fail (gst_caps_is_writable (caps));
+  g_return_if_fail (func != NULL);
+
+  n = GST_CAPS_LEN (caps);
+
+  for (i = 0; i < n;) {
+    features = gst_caps_get_features_unchecked (caps, i);
+    structure = gst_caps_get_structure_unchecked (caps, i);
+
+    /* Provide sysmem features if there are none yet */
+    if (!features) {
+      features =
+          gst_caps_features_copy (GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY);
+      gst_caps_set_features (caps, i, features);
+    }
+
+    ret = func (features, structure, user_data);
+    if (!ret) {
+      GST_CAPS_ARRAY (caps) = g_array_remove_index (GST_CAPS_ARRAY (caps), i);
+
+      gst_structure_set_parent_refcount (structure, NULL);
+      gst_structure_free (structure);
+      if (features) {
+        gst_caps_features_set_parent_refcount (features, NULL);
+        gst_caps_features_free (features);
+      }
+
+      n = GST_CAPS_LEN (caps);
+    } else {
+      i++;
+    }
+  }
 }

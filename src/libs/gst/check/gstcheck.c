@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:gstcheck
@@ -26,7 +26,14 @@
  *
  * These macros and functions are for internal use of the unit tests found
  * inside the 'check' directories of various GStreamer packages.
+ *
+ * One notable feature is that one can use the environment variables GST_CHECKS
+ * and GST_CHECKS_IGNORE to select which tests to run or skip. Both variables
+ * can contain a comma separated list of test name globs (e.g. test_*).
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "gstcheck.h"
 
@@ -48,7 +55,7 @@ GList *buffers = NULL;
 GMutex check_mutex;
 GCond check_cond;
 
-/* FIXME 0.11: shouldn't _gst_check_debug be static? Not used anywhere */
+/* FIXME 2.0: shouldn't _gst_check_debug be static? Not used anywhere */
 gboolean _gst_check_debug = FALSE;
 gboolean _gst_check_raised_critical = FALSE;
 gboolean _gst_check_raised_warning = FALSE;
@@ -59,7 +66,7 @@ static void gst_check_log_message_func
     const gchar * message, gpointer user_data)
 {
   if (_gst_check_debug) {
-    g_print ("%s", message);
+    g_print ("%s\n", message);
   }
 }
 
@@ -115,9 +122,15 @@ print_plugins (void)
 void
 gst_check_init (int *argc, char **argv[])
 {
+  guint timeout_multiplier = 1;
+
   gst_init (argc, argv);
 
   GST_DEBUG_CATEGORY_INIT (check_debug, "check", 0, "check regression tests");
+
+  if (atexit (gst_deinit) != 0) {
+    GST_ERROR ("failed to set gst_deinit as exit function");
+  }
 
   if (g_getenv ("GST_TEST_DEBUG"))
     _gst_check_debug = TRUE;
@@ -136,6 +149,28 @@ gst_check_init (int *argc, char **argv[])
       gst_check_log_critical_func, NULL);
 
   print_plugins ();
+
+#ifdef TARGET_CPU
+  GST_INFO ("target CPU: %s", TARGET_CPU);
+#endif
+
+#ifdef HAVE_CPU_ARM
+  timeout_multiplier = 10;
+#endif
+
+  if (timeout_multiplier > 1) {
+    const gchar *tmult = g_getenv ("CK_TIMEOUT_MULTIPLIER");
+
+    if (tmult == NULL) {
+      gchar num_str[32];
+
+      g_snprintf (num_str, sizeof (num_str), "%d", timeout_multiplier);
+      GST_INFO ("slow CPU, setting CK_TIMEOUT_MULTIPLIER to %s", num_str);
+      g_setenv ("CK_TIMEOUT_MULTIPLIER", num_str, TRUE);
+    } else {
+      GST_INFO ("CK_TIMEOUT_MULTIPLIER already set to '%s'", tmult);
+    }
+  }
 }
 
 /* message checking */
@@ -208,7 +243,9 @@ gst_check_teardown_element (GstElement * element)
  * @element: element to setup pad on
  * @tmpl: pad template
  *
- * Returns: (transfer full): a new pad
+ * Does the same as #gst_check_setup_src_pad_by_name with the <emphasis> name </emphasis> parameter equal to "sink".
+ *
+ * Returns: (transfer full): A new pad that can be used to inject data on @element
  */
 GstPad *
 gst_check_setup_src_pad (GstElement * element, GstStaticPadTemplate * tmpl)
@@ -218,20 +255,94 @@ gst_check_setup_src_pad (GstElement * element, GstStaticPadTemplate * tmpl)
 
 /**
  * gst_check_setup_src_pad_by_name:
- * @element: element to setup pad on
+ * @element: element to setup src pad on
  * @tmpl: pad template
- * @name: name
+ * @name: Name of the @element sink pad that will be linked to the src pad that will be setup
  *
- * Returns: (transfer full): a new pad
+ * Creates a new src pad (based on the given @tmpl) and links it to the given @element sink pad (the pad that matches the given @name).
+ * Before using the src pad to push data on @element you need to call #gst_check_setup_events on the created src pad.
+ *
+ * Example of how to push a buffer on @element:
+ *
+ * |[<!-- language="C" -->
+ * static GstStaticPadTemplate sinktemplate = GST_STATIC_PAD_TEMPLATE ("sink",
+ * GST_PAD_SINK,
+ * GST_PAD_ALWAYS,
+ * GST_STATIC_CAPS (YOUR_CAPS_TEMPLATE_STRING)
+ * );
+ * static GstStaticPadTemplate srctemplate = GST_STATIC_PAD_TEMPLATE ("src",
+ * GST_PAD_SRC,
+ * GST_PAD_ALWAYS,
+ * GST_STATIC_CAPS (YOUR_CAPS_TEMPLATE_STRING)
+ * );
+ *
+ * GstElement * element = gst_check_setup_element ("element");
+ * GstPad * mysrcpad = gst_check_setup_src_pad (element, &srctemplate);
+ * GstPad * mysinkpad = gst_check_setup_sink_pad (element, &sinktemplate);
+ *
+ * gst_pad_set_active (mysrcpad, TRUE);
+ * gst_pad_set_active (mysinkpad, TRUE);
+ * fail_unless (gst_element_set_state (element, GST_STATE_PLAYING) == GST_STATE_CHANGE_SUCCESS, "could not set to playing");
+ *
+ * GstCaps * caps = gst_caps_from_string (YOUR_DESIRED_SINK_CAPS);
+ * gst_check_setup_events (mysrcpad, element, caps, GST_FORMAT_TIME);
+ * gst_caps_unref (caps);
+ *
+ * fail_unless (gst_pad_push (mysrcpad, gst_buffer_new_and_alloc(2)) == GST_FLOW_OK);
+ * ]|
+ *
+ * For very simple input/output test scenarios checkout #gst_check_element_push_buffer_list and #gst_check_element_push_buffer.
+ *
+ * Returns: (transfer full): A new pad that can be used to inject data on @element
  */
 GstPad *
 gst_check_setup_src_pad_by_name (GstElement * element,
     GstStaticPadTemplate * tmpl, const gchar * name)
 {
+  GstPadTemplate *ptmpl = gst_static_pad_template_get (tmpl);
+  GstPad *srcpad;
+
+  srcpad = gst_check_setup_src_pad_by_name_from_template (element, ptmpl, name);
+
+  gst_object_unref (ptmpl);
+
+  return srcpad;
+}
+
+/**
+ * gst_check_setup_src_pad_from_template:
+ * @element: element to setup pad on
+ * @tmpl: pad template
+ *
+ * Returns: (transfer full): a new pad
+ *
+ * Since: 1.4
+ */
+GstPad *
+gst_check_setup_src_pad_from_template (GstElement * element,
+    GstPadTemplate * tmpl)
+{
+  return gst_check_setup_src_pad_by_name_from_template (element, tmpl, "sink");
+}
+
+/**
+ * gst_check_setup_src_pad_by_name_from_template:
+ * @element: element to setup pad on
+ * @tmpl: pad template
+ * @name: name
+ *
+ * Returns: (transfer full): a new pad
+ *
+ * Since: 1.4
+ */
+GstPad *
+gst_check_setup_src_pad_by_name_from_template (GstElement * element,
+    GstPadTemplate * tmpl, const gchar * name)
+{
   GstPad *srcpad, *sinkpad;
 
   /* sending pad */
-  srcpad = gst_pad_new_from_static_template (tmpl, "src");
+  srcpad = gst_pad_new_from_template (tmpl, "src");
   GST_DEBUG_OBJECT (element, "setting up sending pad %p", srcpad);
   fail_if (srcpad == NULL, "Could not create a srcpad");
   ASSERT_OBJECT_REFCOUNT (srcpad, "srcpad", 1);
@@ -294,7 +405,9 @@ gst_check_teardown_src_pad (GstElement * element)
  * @element: element to setup pad on
  * @tmpl: pad template
  *
- * Returns: (transfer full): a new pad
+ * Does the same as #gst_check_setup_sink_pad_by_name with the <emphasis> name </emphasis> parameter equal to "src".
+ *
+ * Returns: (transfer full): a new pad that can be used to check the output of @element
  */
 GstPad *
 gst_check_setup_sink_pad (GstElement * element, GstStaticPadTemplate * tmpl)
@@ -306,18 +419,63 @@ gst_check_setup_sink_pad (GstElement * element, GstStaticPadTemplate * tmpl)
  * gst_check_setup_sink_pad_by_name:
  * @element: element to setup pad on
  * @tmpl: pad template
- * @name: name
+ * @name: Name of the @element src pad that will be linked to the sink pad that will be setup
  *
- * Returns: (transfer full): a new pad
+ * Creates a new sink pad (based on the given @tmpl) and links it to the given @element src pad
+ * (the pad that matches the given @name).
+ * You can set event/chain/query functions on this pad to check the output of the @element.
+ *
+ * Returns: (transfer full): a new pad that can be used to check the output of @element
  */
 GstPad *
 gst_check_setup_sink_pad_by_name (GstElement * element,
     GstStaticPadTemplate * tmpl, const gchar * name)
 {
+  GstPadTemplate *ptmpl = gst_static_pad_template_get (tmpl);
+  GstPad *sinkpad;
+
+  sinkpad =
+      gst_check_setup_sink_pad_by_name_from_template (element, ptmpl, name);
+
+  gst_object_unref (ptmpl);
+
+  return sinkpad;
+}
+
+/**
+ * gst_check_setup_sink_pad_from_template:
+ * @element: element to setup pad on
+ * @tmpl: pad template
+ *
+ * Returns: (transfer full): a new pad
+ *
+ * Since: 1.4
+ */
+GstPad *
+gst_check_setup_sink_pad_from_template (GstElement * element,
+    GstPadTemplate * tmpl)
+{
+  return gst_check_setup_sink_pad_by_name_from_template (element, tmpl, "src");
+}
+
+/**
+ * gst_check_setup_sink_pad_by_name_from_template:
+ * @element: element to setup pad on
+ * @tmpl: pad template
+ * @name: name
+ *
+ * Returns: (transfer full): a new pad
+ *
+ * Since: 1.4
+ */
+GstPad *
+gst_check_setup_sink_pad_by_name_from_template (GstElement * element,
+    GstPadTemplate * tmpl, const gchar * name)
+{
   GstPad *srcpad, *sinkpad;
 
   /* receiving pad */
-  sinkpad = gst_pad_new_from_static_template (tmpl, "sink");
+  sinkpad = gst_pad_new_from_template (tmpl, "sink");
   GST_DEBUG_OBJECT (element, "setting up receiving pad %p", sinkpad);
   fail_if (sinkpad == NULL, "Could not create a sinkpad");
 
@@ -393,7 +551,7 @@ gst_check_buffer_data (GstBuffer * buffer, gconstpointer data, gsize size)
 {
   GstMapInfo info;
 
-  gst_buffer_map (buffer, &info, GST_MAP_READ);
+  fail_unless (gst_buffer_map (buffer, &info, GST_MAP_READ));
   GST_MEMDUMP ("Converted data", info.data, info.size);
   GST_MEMDUMP ("Expected data", data, size);
   if (memcmp (info.data, data, size) != 0) {
@@ -401,9 +559,8 @@ gst_check_buffer_data (GstBuffer * buffer, gconstpointer data, gsize size)
     gst_util_dump_mem (info.data, info.size);
     g_print ("\nExpected data:\n");
     gst_util_dump_mem (data, size);
+    fail ("buffer contents not equal");
   }
-  fail_unless (memcmp (info.data, data, size) == 0,
-      "buffer contents not equal");
   gst_buffer_unmap (buffer, &info);
 }
 
@@ -411,14 +568,13 @@ static gboolean
 buffer_event_function (GstPad * pad, GstObject * noparent, GstEvent * event)
 {
   if (GST_EVENT_TYPE (event) == GST_EVENT_CAPS) {
-    GstCaps *event_caps, *current_caps;
+    GstCaps *event_caps;
+    GstCaps *expected_caps = gst_pad_get_element_private (pad);
 
-    current_caps = gst_pad_get_current_caps (pad);
     gst_event_parse_caps (event, &event_caps);
-    fail_unless (gst_caps_is_fixed (current_caps));
+    fail_unless (gst_caps_is_fixed (expected_caps));
     fail_unless (gst_caps_is_fixed (event_caps));
-    fail_unless (gst_caps_is_equal_fixed (event_caps, current_caps));
-    gst_caps_unref (current_caps);
+    fail_unless (gst_caps_is_equal_fixed (event_caps, expected_caps));
     gst_event_unref (event);
     return TRUE;
   }
@@ -430,21 +586,23 @@ buffer_event_function (GstPad * pad, GstObject * noparent, GstEvent * event)
  * gst_check_element_push_buffer_list:
  * @element_name: name of the element that needs to be created
  * @buffer_in: (element-type GstBuffer) (transfer full): a list of buffers that needs to be
- *  puched to the element
+ *  pushed to the element
+ * @caps_in: the #GstCaps expected of the sinkpad of the element
  * @buffer_out: (element-type GstBuffer) (transfer full): a list of buffers that we expect from
  * the element
+ * @caps_out: the #GstCaps expected of the srcpad of the element
  * @last_flow_return: the last buffer push needs to give this GstFlowReturn
  *
- * Create an @element with the factory with the name and push the buffers in
- * @buffer_in to this element. The element should create the buffers equal to
- * the buffers in @buffer_out. We only check the caps, size and the data of the
- * buffers. This function unrefs the buffers in the two lists.
+ * Create an element using the factory providing the @element_name and push the
+ * buffers in @buffer_in to this element. The element should create the buffers
+ * equal to the buffers in @buffer_out. We only check the size and the data of
+ * the buffers. This function unrefs the buffers in the two lists.
  * The last_flow_return parameter indicates the expected flow return value from
  * pushing the final buffer in the list.
  * This can be used to set up a test which pushes some buffers and then an
  * invalid buffer, when the final buffer is expected to fail, for example.
  */
-/* FIXME 0.11: rename this function now that there's GstBufferList? */
+/* FIXME 2.0: rename this function now that there's GstBufferList? */
 void
 gst_check_element_push_buffer_list (const gchar * element_name,
     GList * buffer_in, GstCaps * caps_in, GList * buffer_out,
@@ -474,8 +632,7 @@ gst_check_element_push_buffer_list (const gchar * element_name,
   /* activate the pad */
   gst_pad_set_active (src_pad, TRUE);
   GST_DEBUG ("src pad activated");
-  if (caps_in)
-    fail_unless (gst_pad_set_caps (src_pad, caps_in));
+  gst_check_setup_events (src_pad, element, caps_in, GST_FORMAT_BYTES);
   pad_peer = gst_element_get_static_pad (element, "sink");
   fail_if (pad_peer == NULL);
   fail_unless (gst_pad_link (src_pad, pad_peer) == GST_PAD_LINK_OK,
@@ -502,9 +659,10 @@ gst_check_element_push_buffer_list (const gchar * element_name,
     /* configure the sink pad */
     gst_pad_set_chain_function (sink_pad, gst_check_chain_func);
     gst_pad_set_active (sink_pad, TRUE);
-    gst_pad_set_caps (sink_pad, caps_out);
-    if (caps_out)
+    if (caps_out) {
+      gst_pad_set_element_private (sink_pad, caps_out);
       gst_pad_set_event_function (sink_pad, buffer_event_function);
+    }
     /* get the peer pad */
     pad_peer = gst_element_get_static_pad (element, "src");
     fail_unless (gst_pad_link (pad_peer, sink_pad) == GST_PAD_LINK_OK,
@@ -540,8 +698,8 @@ gst_check_element_push_buffer_list (const gchar * element_name,
     GstBuffer *orig = GST_BUFFER (buffer_out->data);
     GstMapInfo newinfo, originfo;
 
-    gst_buffer_map (new, &newinfo, GST_MAP_READ);
-    gst_buffer_map (orig, &originfo, GST_MAP_READ);
+    fail_unless (gst_buffer_map (new, &newinfo, GST_MAP_READ));
+    fail_unless (gst_buffer_map (orig, &originfo, GST_MAP_READ));
 
     GST_LOG ("orig buffer: size %" G_GSIZE_FORMAT, originfo.size);
     GST_LOG ("new  buffer: size %" G_GSIZE_FORMAT, newinfo.size);
@@ -578,10 +736,12 @@ gst_check_element_push_buffer_list (const gchar * element_name,
  * gst_check_element_push_buffer:
  * @element_name: name of the element that needs to be created
  * @buffer_in: push this buffer to the element
+ * @caps_in: the #GstCaps expected of the sinkpad of the element
  * @buffer_out: compare the result with this buffer
+ * @caps_out: the #GstCaps expected of the srcpad of the element
  *
- * Create an @element with the factory with the name and push the
- * @buffer_in to this element. The element should create one buffer
+ * Create an element using the factory providing the @element_name and
+ * push the @buffer_in to this element. The element should create one buffer
  * and this will be compared with @buffer_out. We only check the caps
  * and the data of the buffers. This function unrefs the buffers.
  */
@@ -633,6 +793,7 @@ gst_check_abi_list (GstCheckABIStruct list[], gboolean have_abi_sizes)
       if (!g_file_set_contents (fn, s->str, s->len, &err)) {
         g_print ("%s", s->str);
         g_printerr ("\nFailed to write ABI information: %s\n", err->message);
+        g_clear_error (&err);
       } else {
         g_print ("\nWrote ABI information to '%s'.\n", fn);
       }
@@ -667,18 +828,26 @@ gst_check_run_suite (Suite * suite, const gchar * name, const gchar * fname)
   return nf;
 }
 
-gboolean
-_gst_check_run_test_func (const gchar * func_name)
+static gboolean
+gst_check_have_checks_list (const gchar * env_var_name)
+{
+  const gchar *env_val;
+
+  env_val = g_getenv (env_var_name);
+  return (env_val != NULL && *env_val != '\0');
+}
+
+static gboolean
+gst_check_func_is_in_list (const gchar * env_var, const gchar * func_name)
 {
   const gchar *gst_checks;
   gboolean res = FALSE;
   gchar **funcs, **f;
 
-  gst_checks = g_getenv ("GST_CHECKS");
+  gst_checks = g_getenv (env_var);
 
-  /* no filter specified => run all checks */
   if (gst_checks == NULL || *gst_checks == '\0')
-    return TRUE;
+    return FALSE;
 
   /* only run specified functions */
   funcs = g_strsplit (gst_checks, ",", -1);
@@ -690,4 +859,182 @@ _gst_check_run_test_func (const gchar * func_name)
   }
   g_strfreev (funcs);
   return res;
+}
+
+gboolean
+_gst_check_run_test_func (const gchar * func_name)
+{
+  /* if we have a whitelist, run it only if it's in the whitelist */
+  if (gst_check_have_checks_list ("GST_CHECKS"))
+    return gst_check_func_is_in_list ("GST_CHECKS", func_name);
+
+  /* if we have a blacklist, run it only if it's not in the blacklist */
+  if (gst_check_have_checks_list ("GST_CHECKS_IGNORE"))
+    return !gst_check_func_is_in_list ("GST_CHECKS_IGNORE", func_name);
+
+  /* no filter specified => run all checks */
+  return TRUE;
+}
+
+/**
+ * gst_check_setup_events_with_stream_id:
+ * @srcpad: The src #GstPad to push on
+ * @element: The #GstElement use to create the stream id
+ * @caps: (allow-none): #GstCaps in case caps event must be sent
+ * @format: The #GstFormat of the default segment to send
+ * @stream_id: A unique identifier for the stream
+ *
+ * Push stream-start, caps and segment event, which consist of the minimum
+ * required events to allow streaming. Caps is optional to allow raw src
+ * testing.
+ */
+void
+gst_check_setup_events_with_stream_id (GstPad * srcpad, GstElement * element,
+    GstCaps * caps, GstFormat format, const gchar * stream_id)
+{
+  GstSegment segment;
+
+  gst_segment_init (&segment, format);
+
+  fail_unless (gst_pad_push_event (srcpad,
+          gst_event_new_stream_start (stream_id)));
+  if (caps)
+    fail_unless (gst_pad_push_event (srcpad, gst_event_new_caps (caps)));
+  fail_unless (gst_pad_push_event (srcpad, gst_event_new_segment (&segment)));
+}
+
+/**
+ * gst_check_setup_events:
+ * @srcpad: The src #GstPad to push on
+ * @element: The #GstElement use to create the stream id
+ * @caps: (allow-none): #GstCaps in case caps event must be sent
+ * @format: The #GstFormat of the default segment to send
+ *
+ * Push stream-start, caps and segment event, which consist of the minimum
+ * required events to allow streaming. Caps is optional to allow raw src
+ * testing. If @element has more than one src or sink pad, use
+ * gst_check_setup_events_with_stream_id() instead.
+ */
+void
+gst_check_setup_events (GstPad * srcpad, GstElement * element,
+    GstCaps * caps, GstFormat format)
+{
+  gchar *stream_id;
+
+  stream_id = gst_pad_create_stream_id (srcpad, element, NULL);
+  gst_check_setup_events_with_stream_id (srcpad, element, caps, format,
+      stream_id);
+  g_free (stream_id);
+}
+
+typedef struct _DestroyedObjectStruct
+{
+  GObject *object;
+  gboolean destroyed;
+} DestroyedObjectStruct;
+
+static void
+weak_notify (DestroyedObjectStruct * destroyed, GObject ** object)
+{
+  destroyed->destroyed = TRUE;
+}
+
+/**
+ * gst_check_objects_destroyed_on_unref:
+ * @object_to_unref: The #GObject to unref
+ * @first_object: (allow-none): The first object that should be destroyed as a
+ * concequence of unrefing @object_to_unref.
+ * @... : Additional object that should have been destroyed.
+ *
+ * Unrefs @object_to_unref and checks that is has properly been
+ * destroyed, also checks that the other objects passed in
+ * parametter have been destroyed as a concequence of
+ * unrefing @object_to_unref. Last variable argument should be NULL.
+ *
+ * Since: 1.6
+ */
+void
+gst_check_objects_destroyed_on_unref (gpointer object_to_unref,
+    gpointer first_object, ...)
+{
+  GObject *object;
+  GList *objs = NULL, *tmp;
+  DestroyedObjectStruct *destroyed = g_slice_new0 (DestroyedObjectStruct);
+
+  destroyed->object = object_to_unref;
+  g_object_weak_ref (object_to_unref, (GWeakNotify) weak_notify, destroyed);
+  objs = g_list_prepend (objs, destroyed);
+
+  if (first_object) {
+    va_list varargs;
+
+    object = first_object;
+
+    va_start (varargs, first_object);
+    while (object) {
+      destroyed = g_slice_new0 (DestroyedObjectStruct);
+      destroyed->object = object;
+      g_object_weak_ref (object, (GWeakNotify) weak_notify, destroyed);
+      objs = g_list_prepend (objs, destroyed);
+      object = va_arg (varargs, GObject *);
+    }
+    va_end (varargs);
+  }
+  gst_object_unref (object_to_unref);
+
+  for (tmp = objs; tmp; tmp = tmp->next) {
+    DestroyedObjectStruct *destroyed = tmp->data;
+
+    if (!destroyed->destroyed) {
+      fail_unless (destroyed->destroyed,
+          "%s_%p is not destroyed, %d refcounts left!",
+          GST_IS_OBJECT (destroyed->
+              object) ? GST_OBJECT_NAME (destroyed->object) :
+          G_OBJECT_TYPE_NAME (destroyed), destroyed->object,
+          destroyed->object->ref_count);
+    }
+    g_slice_free (DestroyedObjectStruct, tmp->data);
+  }
+  g_list_free (objs);
+}
+
+/**
+ * gst_check_object_destroyed_on_unref:
+ * @object_to_unref: The #GObject to unref
+ *
+ * Unrefs @object_to_unref and checks that is has properly been
+ * destroyed.
+ *
+ * Since: 1.6
+ */
+void
+gst_check_object_destroyed_on_unref (gpointer object_to_unref)
+{
+  gst_check_objects_destroyed_on_unref (object_to_unref, NULL, NULL);
+}
+
+/* For ABI compatibility with GStreamer < 1.5 */
+/* *INDENT-OFF* */
+void
+_fail_unless (int result, const char *file, int line, const char *expr, ...)
+G_GNUC_PRINTF (4, 5);
+/* *INDENT-ON* */
+
+void
+_fail_unless (int result, const char *file, int line, const char *expr, ...)
+{
+  gchar *msg;
+  va_list args;
+
+  if (result) {
+    _mark_point (file, line);
+    return;
+  }
+
+  va_start (args, expr);
+  msg = g_strdup_vprintf (expr, args);
+  va_end (args);
+
+  _ck_assert_failed (file, line, msg, NULL);
+  g_free (msg);
 }

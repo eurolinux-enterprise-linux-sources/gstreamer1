@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_BUS_H__
@@ -99,7 +99,7 @@ typedef GstBusSyncReply (*GstBusSyncHandler)    (GstBus * bus, GstMessage * mess
  * function so it should not be freed in the function.
  *
  * Note that this function is used as a GSourceFunc which means that returning
- * FALSE will remove the GSource from the mainloop.
+ * %FALSE will remove the GSource from the mainloop.
  *
  * Returns: %FALSE if the event source should be removed.
  */
@@ -159,6 +159,7 @@ guint                   gst_bus_add_watch_full          (GstBus * bus,
 guint                   gst_bus_add_watch               (GstBus * bus,
                                                          GstBusFunc func,
                                                          gpointer user_data);
+gboolean                gst_bus_remove_watch            (GstBus * bus);
 
 /* polling the bus */
 GstMessage*             gst_bus_poll                    (GstBus *bus, GstMessageType events,
@@ -177,6 +178,10 @@ void                    gst_bus_remove_signal_watch     (GstBus * bus);
 
 void                    gst_bus_enable_sync_message_emission (GstBus * bus);
 void                    gst_bus_disable_sync_message_emission (GstBus * bus);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBus, gst_object_unref)
+#endif
 
 G_END_DECLS
 

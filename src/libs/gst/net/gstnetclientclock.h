@@ -19,8 +19,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -70,8 +70,34 @@ struct _GstNetClientClockClass {
 
 GType           gst_net_client_clock_get_type	(void);
 
-GstClock*	gst_net_client_clock_new	(gchar *name, const gchar *remote_address,
+GstClock*	gst_net_client_clock_new	(const gchar *name, const gchar *remote_address,
                                                  gint remote_port, GstClockTime base_time);
+
+#define GST_TYPE_NTP_CLOCK \
+  (gst_ntp_clock_get_type())
+#define GST_NTP_CLOCK(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_NTP_CLOCK,GstNtpClock))
+#define GST_NTP_CLOCK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_NTP_CLOCK,GstNtpClockClass))
+#define GST_IS_NTP_CLOCK(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_NTP_CLOCK))
+#define GST_IS_NTP_CLOCK_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_NTP_CLOCK))
+
+typedef struct _GstNetClientClock GstNtpClock;
+typedef struct _GstNetClientClockClass GstNtpClockClass;
+
+GType           gst_ntp_clock_get_type	        (void);
+GstClock*	gst_ntp_clock_new	        (const gchar *name, const gchar *remote_address,
+                                                 gint remote_port, GstClockTime base_time);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstNetClientClock, gst_object_unref)
+#endif
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstNtpClock, gst_object_unref)
+#endif
 
 G_END_DECLS
 

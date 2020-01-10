@@ -18,8 +18,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 #ifndef __GST_QUEUE2_H__
 #define __GST_QUEUE2_H__
@@ -87,6 +87,9 @@ struct _GstQueue2
   GstClockTime sinktime, srctime;
   /* TRUE if either position needs to be recalculated */
   gboolean sink_tainted, src_tainted;
+  /* Bitrates taken from tags */
+  guint sink_tags_bitrate;
+  guint src_tags_bitrate;
 
   /* flowreturn when srcpad is paused */
   GstFlowReturn srcresult;
@@ -97,22 +100,28 @@ struct _GstQueue2
   /* the queue of data we're keeping our hands on */
   GQueue queue;
 
+  GCond query_handled;
+  gboolean last_query; /* result of last serialized query */
+
   GstQueue2Size cur_level;       /* currently in the queue */
   GstQueue2Size max_level;       /* max. amount of data allowed in the queue */
   gboolean use_buffering;
+  gboolean use_tags_bitrate;
   gboolean use_rate_estimate;
   GstClockTime buffering_interval;
-  gint low_percent;             /* low/high watermarks for buffering */
-  gint high_percent;
+
+  /* low/high watermarks for buffering */
+  gint low_watermark;
+  gint high_watermark;
 
   /* current buffering state */
   gboolean is_buffering;
   gint buffering_percent;
-  guint buffering_iteration;
 
   /* for measuring input/output rates */
   GTimer *in_timer;
   gboolean in_timer_started;
+  gdouble last_update_in_rates_elapsed;
   gdouble last_in_elapsed;
   guint64 bytes_in;
   gdouble byte_in_rate;
@@ -149,6 +158,15 @@ struct _GstQueue2
 
   guint64 ring_buffer_max_size;
   guint8 * ring_buffer;
+
+  volatile gint downstream_may_block;
+
+  GstBufferingMode mode;
+  gint64 buffering_left;
+  gint avg_in;
+  gint avg_out;
+  gboolean percent_changed;
+  GMutex buffering_post_lock; /* assures only one posted at a time */
 };
 
 struct _GstQueue2Class

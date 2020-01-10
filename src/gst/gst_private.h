@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_PRIVATE_H__
@@ -38,6 +38,9 @@ extern const char             g_log_domain_gstreamer[];
 #include <stdlib.h>
 #include <string.h>
 
+/* Needed for GST_EXPORT */
+#include "gst/gstconfig.h"
+
 /* Needed for GstRegistry * */
 #include "gstregistry.h"
 #include "gststructure.h"
@@ -54,10 +57,15 @@ extern const char             g_log_domain_gstreamer[];
 /* for GstElement */
 #include "gstelement.h"
 
+/* for GstDeviceProvider */
+#include "gstdeviceprovider.h"
+
 /* for GstToc */
 #include "gsttoc.h"
 
 #include "gstdatetime.h"
+
+#include "gsttracerutils.h"
 
 G_BEGIN_DECLS
 
@@ -101,14 +109,16 @@ G_GNUC_INTERNAL  gboolean _priv_gst_in_valgrind (void);
 /* init functions called from gst_init(). */
 G_GNUC_INTERNAL  void  _priv_gst_quarks_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_mini_object_initialize (void);
+G_GNUC_INTERNAL  void  _priv_gst_memory_initialize (void);
+G_GNUC_INTERNAL  void  _priv_gst_allocator_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_buffer_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_buffer_list_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_structure_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_caps_initialize (void);
+G_GNUC_INTERNAL  void  _priv_gst_caps_features_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_event_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_format_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_message_initialize (void);
-G_GNUC_INTERNAL  void  _priv_gst_memory_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_meta_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_plugin_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_query_initialize (void);
@@ -116,6 +126,17 @@ G_GNUC_INTERNAL  void  _priv_gst_sample_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_tag_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_value_initialize (void);
 G_GNUC_INTERNAL  void  _priv_gst_debug_init (void);
+G_GNUC_INTERNAL  void  _priv_gst_context_initialize (void);
+G_GNUC_INTERNAL  void  _priv_gst_toc_initialize (void);
+G_GNUC_INTERNAL  void  _priv_gst_date_time_initialize (void);
+
+/* cleanup functions called from gst_deinit(). */
+G_GNUC_INTERNAL  void  _priv_gst_allocator_cleanup (void);
+G_GNUC_INTERNAL  void  _priv_gst_caps_features_cleanup (void);
+G_GNUC_INTERNAL  void  _priv_gst_caps_cleanup (void);
+
+/* called from gst_task_cleanup_all(). */
+G_GNUC_INTERNAL  void  _priv_gst_element_cleanup (void);
 
 /* Private registry functions */
 G_GNUC_INTERNAL
@@ -125,16 +146,41 @@ G_GNUC_INTERNAL  void _priv_gst_registry_cleanup (void);
 
 gboolean _gst_plugin_loader_client_run (void);
 
+G_GNUC_INTERNAL  GstPlugin * _priv_gst_plugin_load_file_for_registry (const gchar *filename,
+                                                                      GstRegistry * registry,
+                                                                      GError** error);
+
 /* Used in GstBin for manual state handling */
 G_GNUC_INTERNAL  void _priv_gst_element_state_changed (GstElement *element,
                       GstState oldstate, GstState newstate, GstState pending);
 
 /* used in both gststructure.c and gstcaps.c; numbers are completely made up */
 #define STRUCTURE_ESTIMATED_STRING_LEN(s) (16 + gst_structure_n_fields(s) * 22)
+#define FEATURES_ESTIMATED_STRING_LEN(s) (16 + gst_caps_features_get_size(s) * 14)
 
 G_GNUC_INTERNAL
 gboolean  priv_gst_structure_append_to_gstring (const GstStructure * structure,
                                                 GString            * s);
+G_GNUC_INTERNAL
+gboolean priv__gst_structure_append_template_to_gstring (GQuark field_id,
+                                                        const GValue *value,
+                                                        gpointer user_data);
+
+G_GNUC_INTERNAL
+void priv_gst_caps_features_append_to_gstring (const GstCapsFeatures * features, GString *s);
+
+G_GNUC_INTERNAL
+gboolean priv_gst_structure_parse_name (gchar * str, gchar **start, gchar ** end, gchar ** next);
+G_GNUC_INTERNAL
+gboolean priv_gst_structure_parse_fields (gchar *str, gchar ** end, GstStructure *structure);
+
+/* used in gstvalue.c and gststructure.c */
+
+#define GST_WRAPPED_PTR_FORMAT     "p\aa"
+
+G_GNUC_INTERNAL
+gchar *priv_gst_string_take_and_wrap (gchar * s);
+
 /* registry cache backends */
 G_GNUC_INTERNAL
 gboolean		priv_gst_registry_binary_read_cache	(GstRegistry * registry, const char *location);
@@ -162,6 +208,16 @@ gint __gst_date_time_compare (const GstDateTime * dt1, const GstDateTime * dt2);
 
 G_GNUC_INTERNAL
 gchar * __gst_date_time_serialize (GstDateTime * datetime, gboolean with_usecs);
+
+/* Non-static, for access from the testsuite, but not for external use */
+gboolean
+_priv_gst_do_linear_regression (GstClockTime *times, guint n,
+    GstClockTime * m_num, GstClockTime * m_denom, GstClockTime * b,
+    GstClockTime * xbase, gdouble * r_squared);
+
+/* For use in gstdebugutils */
+G_GNUC_INTERNAL
+GstCapsFeatures * __gst_caps_get_features_unchecked (const GstCaps * caps, guint idx);
 
 #ifndef GST_DISABLE_REGISTRY
 /* Secret variable to initialise gst without registry cache */
@@ -220,11 +276,17 @@ GST_EXPORT GstDebugCategory *GST_CAT_REGISTRY;
 GST_EXPORT GstDebugCategory *GST_CAT_QOS;
 GST_EXPORT GstDebugCategory *GST_CAT_META;
 GST_EXPORT GstDebugCategory *GST_CAT_LOCKING;
+GST_EXPORT GstDebugCategory *GST_CAT_CONTEXT;
 
 /* Categories that should be completely private to
  * libgstreamer should be done like this: */
 #define GST_CAT_POLL _priv_GST_CAT_POLL
 extern GstDebugCategory *_priv_GST_CAT_POLL;
+
+#define GST_CAT_PROTECTION _priv_GST_CAT_PROTECTION
+extern GstDebugCategory *_priv_GST_CAT_PROTECTION;
+
+extern GstClockTime _priv_gst_start_time;
 
 #else
 
@@ -262,9 +324,16 @@ extern GstDebugCategory *_priv_GST_CAT_POLL;
 #define GST_CAT_POLL             NULL
 #define GST_CAT_META             NULL
 #define GST_CAT_LOCKING          NULL
+#define GST_CAT_CONTEXT          NULL
+#define GST_CAT_PROTECTION       NULL
 
 #endif
 
+#ifdef GST_DISABLE_GST_DEBUG
+/* for _gst_element_error_printf */
+#define __gst_vasprintf __gst_info_fallback_vasprintf
+int __gst_vasprintf (char **result, char const *format, va_list args);
+#endif
 
 /**** objects made opaque until the private bits have been made private ****/
 
@@ -334,7 +403,7 @@ struct _GstTypeFindFactory {
 
   GstTypeFindFunction           function;
   gchar **                      extensions;
-  GstCaps *                     caps; /* FIXME: not yet saved in registry */
+  GstCaps *                     caps;
 
   gpointer                      user_data;
   GDestroyNotify                user_data_notify;
@@ -343,6 +412,27 @@ struct _GstTypeFindFactory {
 };
 
 struct _GstTypeFindFactoryClass {
+  GstPluginFeatureClass         parent;
+  /* <private> */
+
+  gpointer _gst_reserved[GST_PADDING];
+};
+
+struct _GstTracerFactory {
+  GstPluginFeature              feature;
+  /* <private> */
+
+  GType                         type;
+
+  /*
+  gpointer                      user_data;
+  GDestroyNotify                user_data_notify;
+  */
+
+  gpointer _gst_reserved[GST_PADDING];
+};
+
+struct _GstTracerFactoryClass {
   GstPluginFeatureClass         parent;
   /* <private> */
 
@@ -374,6 +464,28 @@ struct _GstElementFactoryClass {
 
   gpointer _gst_reserved[GST_PADDING];
 };
+
+struct _GstDeviceProviderFactory {
+  GstPluginFeature           feature;
+  /* <private> */
+
+  GType                      type;              /* unique GType the device factory or 0 if not loaded */
+
+  volatile GstDeviceProvider *provider;
+  gpointer                   metadata;
+
+  gpointer _gst_reserved[GST_PADDING];
+};
+
+struct _GstDeviceProviderFactoryClass {
+  GstPluginFeatureClass         parent;
+  /* <private> */
+
+  gpointer _gst_reserved[GST_PADDING];
+};
+
+/* privat flag used by GstBus / GstMessage */
+#define GST_MESSAGE_FLAG_ASYNC_DELIVERY (GST_MINI_OBJECT_FLAG_LAST << 0)
 
 G_END_DECLS
 #endif /* __GST_PRIVATE_H__ */

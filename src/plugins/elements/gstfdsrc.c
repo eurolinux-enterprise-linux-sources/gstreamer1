@@ -17,22 +17,22 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:element-fdsrc
  * @see_also: #GstFdSink
  *
  * Read data from a unix file descriptor.
- * 
- * To generate data, enter some data on the console folowed by enter.
+ *
+ * To generate data, enter some data on the console followed by enter.
  * The above mentioned pipeline should dump data packets to the console.
- * 
+ *
  * If the #GstFdSrc:timeout property is set to a value bigger than 0, fdsrc will
- * generate an element message named
- * <classname>&quot;GstFdSrcTimeout&quot;</classname>
- * if no data was recieved in the given timeout.
+ * generate an element message named <classname>&quot;GstFdSrcTimeout&quot;</classname>
+ * if no data was received in the given timeout.
+ *
  * The message's structure contains one field:
  * <itemizedlist>
  * <listitem>
@@ -43,16 +43,14 @@
  *   </para>
  * </listitem>
  * </itemizedlist>
- * 
+ *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * echo "Hello GStreamer" | gst-launch -v fdsrc ! fakesink dump=true
+ * echo "Hello GStreamer" | gst-launch-1.0 -v fdsrc ! fakesink dump=true
  * ]| A simple pipeline to read from the standard input and dump the data
  * with a fakesink as hex ascii block.
  * </refsect2>
- * 
- * Last reviewed on 2008-06-20 (0.10.21)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -66,8 +64,6 @@
 #include <io.h>                 /* lseek, open, close, read */
 #undef lseek
 #define lseek _lseeki64
-#undef off_t
-#define off_t guint64
 #endif
 
 #include <sys/stat.h>
@@ -89,6 +85,13 @@
 #include <errno.h>
 
 #include "gstfdsrc.h"
+
+#ifdef __BIONIC__               /* Android */
+#undef lseek
+#define lseek lseek64
+#undef fstat
+#define fstat fstat64
+#endif
 
 static GstStaticPadTemplate srctemplate = GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
@@ -171,8 +174,7 @@ gst_fd_src_class_init (GstFdSrcClass * klass)
       "Filedescriptor Source",
       "Source/File",
       "Read from a file descriptor", "Erik Walthinsen <omega@cse.ogi.edu>");
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&srctemplate));
+  gst_element_class_add_static_pad_template (gstelement_class, &srctemplate);
 
   gstbasesrc_class->start = GST_DEBUG_FUNCPTR (gst_fd_src_start);
   gstbasesrc_class->stop = GST_DEBUG_FUNCPTR (gst_fd_src_stop);
@@ -443,7 +445,8 @@ gst_fd_src_create (GstPushSrc * psrc, GstBuffer ** outbuf)
   if (G_UNLIKELY (buf == NULL))
     goto alloc_failed;
 
-  gst_buffer_map (buf, &info, GST_MAP_WRITE);
+  if (!gst_buffer_map (buf, &info, GST_MAP_WRITE))
+    goto buffer_read_error;
 
   do {
     readbytes = read (src->fd, info.data, blocksize);
@@ -502,6 +505,12 @@ read_error:
         ("read on file descriptor: %s.", g_strerror (errno)));
     GST_DEBUG_OBJECT (psrc, "Error reading from fd");
     gst_buffer_unmap (buf, &info);
+    gst_buffer_unref (buf);
+    return GST_FLOW_ERROR;
+  }
+buffer_read_error:
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, WRITE, (NULL), ("Can't write to buffer"));
     gst_buffer_unref (buf);
     return GST_FLOW_ERROR;
   }
@@ -633,21 +642,28 @@ gst_fd_src_uri_set_uri (GstURIHandler * handler, const gchar * uri,
 
   protocol = gst_uri_get_protocol (uri);
   if (strcmp (protocol, "fd") != 0) {
+    g_set_error (err, GST_URI_ERROR, GST_URI_ERROR_BAD_URI,
+        "Wrong protocol for fdsrc in uri: '%s'", uri);
     g_free (protocol);
     return FALSE;
   }
   g_free (protocol);
 
-  if (sscanf (uri, "fd://%d", &fd) != 1 || fd < 0)
+  if (sscanf (uri, "fd://%d", &fd) != 1 || fd < 0) {
+    g_set_error (err, GST_URI_ERROR, GST_URI_ERROR_BAD_URI,
+        "Bad file descriptor number in uri: '%s'", uri);
     return FALSE;
+  }
 
   if ((q = g_strstr_len (uri, -1, "?"))) {
-    gchar *sp;
+    gchar *sp, *end = NULL;
 
     GST_INFO_OBJECT (src, "found ?");
 
     if ((sp = g_strstr_len (q, -1, "size="))) {
-      if (sscanf (sp, "size=%" G_GUINT64_FORMAT, &size) != 1) {
+      sp += strlen ("size=");
+      size = g_ascii_strtoull (sp, &end, 10);
+      if ((size == 0 && errno == EINVAL) || size == G_MAXUINT64 || end == sp) {
         GST_INFO_OBJECT (src, "parsing size failed");
         size = -1;
       } else {

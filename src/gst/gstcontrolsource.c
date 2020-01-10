@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -25,8 +25,8 @@
  * @short_description: base class for control source sources
  *
  * The #GstControlSource is a base class for control value sources that could
- * be used by #GstController to get timestamp-value pairs. A control source
- * essentially is a function over time, returning gloat values between 0.0 and 1.0.
+ * be used to get timestamp-value pairs. A control source essentially is a
+ * function over time.
  *
  * A #GstControlSource is used by first getting an instance of a specific
  * control-source, creating a binding for the control-source to the target property
@@ -89,14 +89,14 @@ gst_control_source_constructor (GType type, guint n_construct_params,
 }
 
 /**
- * gst_control_source_get_value:
+ * gst_control_source_get_value: (method)
  * @self: the #GstControlSource object
  * @timestamp: the time for which the value should be returned
- * @value: the value
+ * @value: (out): the value
  *
  * Gets the value for this #GstControlSource at a given timestamp.
  *
- * Returns: FALSE if the value couldn't be returned, TRUE otherwise.
+ * Returns: %FALSE if the value couldn't be returned, %TRUE otherwise.
  */
 gboolean
 gst_control_source_get_value (GstControlSource * self, GstClockTime timestamp,
@@ -113,12 +113,12 @@ gst_control_source_get_value (GstControlSource * self, GstClockTime timestamp,
 }
 
 /**
- * gst_control_source_get_value_array:
+ * gst_control_source_get_value_array: (method)
  * @self: the #GstControlSource object
  * @timestamp: the first timestamp
  * @interval: the time steps
  * @n_values: the number of values to fetch
- * @values: array to put control-values in
+ * @values: (array length=n_values): array to put control-values in
  *
  * Gets an array of values for for this #GstControlSource. Values that are
  * undefined contain NANs.

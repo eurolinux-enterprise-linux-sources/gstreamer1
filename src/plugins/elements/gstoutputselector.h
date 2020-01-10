@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
  
 #ifndef __GST_OUTPUT_SELECTOR_H__
@@ -60,6 +60,25 @@ struct _GstOutputSelector {
 struct _GstOutputSelectorClass {
   GstElementClass parent_class;
 };
+
+/**
+ * GstOutputSelectorPadNegotiationMode:
+ * @GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_NONE: don't propagate the input
+ * stream.
+ * @GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_ALL: direct input stream to all
+ * output pads.
+ * @GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_ACTIVE: direct input stream to the
+ * currently active output pad as described by the #GstOutputSelector:active-pad
+ * property.
+ *
+ * To what output pad the input stream should be directed.
+ */
+typedef enum
+{
+  GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_NONE,
+  GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_ALL,
+  GST_OUTPUT_SELECTOR_PAD_NEGOTIATION_MODE_ACTIVE
+} GstOutputSelectorPadNegotiationMode;
 
 G_GNUC_INTERNAL GType gst_output_selector_get_type (void);
 

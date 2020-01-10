@@ -25,7 +25,7 @@ DOC_SOURCE_DIR=$(top_srcdir)/libs/gst
 SCAN_OPTIONS=--deprecated-guards="GST_DISABLE_DEPRECATED"
 
 # Extra options to supply to gtkdoc-mkdb.
-MKDB_OPTIONS=--sgml-mode --output-format=xml
+MKDB_OPTIONS=--sgml-mode --output-format=xml --ignore-files="$(IGNORE_HFILES)"
 
 # Extra options to supply to gtkdoc-fixref.
 FIXXREF_OPTIONS=--extra-dir=$(top_builddir)/docs/gst/html \
@@ -41,10 +41,13 @@ SCANOBJ_OPTIONS=--type-init-func="gst_init(&argc,&argv)"
 
 # Header files to ignore when scanning.
 IGNORE_HFILES = \
+	libcheck internal-check.h \
 	gstinterpolationcontrolsourceprivate.h \
 	gstlfocontrolsourceprivate.h \
 	gstgetbits_inl.h \
-	dp-private.h
+	gstindex.h \
+	dp-private.h \
+	gstntppacket.h
 
 # Images to copy into HTML directory.
 HTML_IMAGES = gdp-header.png
@@ -62,13 +65,11 @@ GTKDOC_LIBS = \
 	$(top_builddir)/libs/gst/controller/libgstcontroller-@GST_API_VERSION@.la \
 	$(top_builddir)/libs/gst/base/libgstbase-@GST_API_VERSION@.la \
 	$(top_builddir)/libs/gst/net/libgstnet-@GST_API_VERSION@.la \
+	$(top_builddir)/libs/gst/check/libgstcheck-@GST_API_VERSION@.la \
 	$(GST_OBJ_LIBS)
 
-GTKDOC_CC=$(LIBTOOL) --tag=CC --mode=compile $(CC)
-GTKDOC_LD=$(LIBTOOL) --tag=CC --mode=link $(CC)
-
 GTKDOC_EXTRA_ENVIRONMENT= \
-    GST_PLUGIN_SCANNER=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner
+    GST_PLUGIN_SCANNER_1_0=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner
 
 # If you need to override some of the declarations, place them in this file
 # and uncomment this line.

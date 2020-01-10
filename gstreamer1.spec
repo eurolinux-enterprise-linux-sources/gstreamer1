@@ -5,8 +5,8 @@
 %global         _gobject_introspection  1.31.1
 
 Name:           gstreamer1
-Version:        1.0.7
-Release:        4%{?dist}
+Version:        1.10.4
+Release:        2%{?dist}
 Summary:        GStreamer streaming media framework runtime
 
 License:        LGPLv2+
@@ -14,7 +14,6 @@ URL:            http://gstreamer.freedesktop.org/
 Source0:        http://gstreamer.freedesktop.org/src/gstreamer/gstreamer-%{version}.tar.xz
 ## For GStreamer RPM provides
 Patch0:         gstreamer-inspect-rpm-format.patch
-Patch1:         0001-pluginloader-check-read-write-before-closed.patch
 Source1:        gstreamer1.prov
 Source2:        gstreamer1.attr
 
@@ -83,13 +82,12 @@ GStreamer streaming media framework.
 %prep
 %setup -q -n gstreamer-%{version}
 %patch0 -p1 -b .rpm-provides
-%patch1 -p1 -b .scanner-fix
 
 
 %build
 %configure \
-  --with-package-name='Fedora GStreamer package' \
-  --with-package-origin='http://download.fedoraproject.org' \
+  --with-package-name='GStreamer package' \
+  --with-package-origin='http://www.redhat.com' \
   --enable-gtk-doc \
   --enable-debug \
   --disable-tests --disable-examples
@@ -106,9 +104,12 @@ chrpath --delete $RPM_BUILD_ROOT%{_libdir}/libgstcontroller-1.0.so.*
 chrpath --delete $RPM_BUILD_ROOT%{_libdir}/libgstnet-1.0.so.*
 chrpath --delete $RPM_BUILD_ROOT%{_libdir}/gstreamer-%{majorminor}/libgstcoreelements.so
 chrpath --delete $RPM_BUILD_ROOT%{_libexecdir}/gstreamer-%{majorminor}/gst-plugin-scanner
+chrpath --delete $RPM_BUILD_ROOT%{_libexecdir}/gstreamer-%{majorminor}/gst-ptp-helper
 chrpath --delete $RPM_BUILD_ROOT%{_bindir}/gst-inspect-1.0
 chrpath --delete $RPM_BUILD_ROOT%{_bindir}/gst-launch-1.0
+chrpath --delete $RPM_BUILD_ROOT%{_bindir}/gst-stats-1.0
 chrpath --delete $RPM_BUILD_ROOT%{_bindir}/gst-typefind-1.0
+chrpath --delete $RPM_BUILD_ROOT%{_datadir}/bash-completion/helpers/gst-completion-helper-%{majorminor}
 
 %find_lang gstreamer-%{majorminor}
 # Clean out files that should not be part of the rpm.
@@ -126,7 +127,8 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 
 
 %files -f gstreamer-%{majorminor}.lang
-%doc AUTHORS COPYING NEWS README RELEASE
+%license COPYING
+%doc AUTHORS NEWS README RELEASE
 %{_libdir}/libgstreamer-%{majorminor}.so.*
 %{_libdir}/libgstbase-%{majorminor}.so.*
 %{_libdir}/libgstcheck-%{majorminor}.so.*
@@ -137,6 +139,7 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 
 %dir %{_libdir}/gstreamer-%{majorminor}
 %{_libdir}/gstreamer-%{majorminor}/libgstcoreelements.so
+%{_libdir}/gstreamer-%{majorminor}/libgstcoretracers.so
 
 %{_libdir}/girepository-1.0/Gst-%{majorminor}.typelib
 %{_libdir}/girepository-1.0/GstBase-%{majorminor}.typelib
@@ -146,6 +149,7 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 
 %{_bindir}/gst-inspect-%{majorminor}
 %{_bindir}/gst-launch-%{majorminor}
+%{_bindir}/gst-stats-%{majorminor}
 %{_bindir}/gst-typefind-%{majorminor}
 
 %{_rpmconfigdir}/gstreamer1.prov
@@ -154,6 +158,11 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 %doc %{_mandir}/man1/gst-inspect-%{majorminor}.*
 %doc %{_mandir}/man1/gst-launch-%{majorminor}.*
 %doc %{_mandir}/man1/gst-typefind-%{majorminor}.*
+
+%{_datadir}/bash-completion/completions/gst-inspect-1.0
+%{_datadir}/bash-completion/completions/gst-launch-1.0
+%{_datadir}/bash-completion/helpers/gst
+%{_datadir}/bash-completion/helpers/gst-completion-helper-1.0
 
 %files devel
 %dir %{_includedir}/gstreamer-%{majorminor}
@@ -188,7 +197,6 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 %{_libdir}/pkgconfig/gstreamer-check-%{majorminor}.pc
 %{_libdir}/pkgconfig/gstreamer-net-%{majorminor}.pc
 
-
 %files devel-docs
 %doc %{_datadir}/gtk-doc/html/gstreamer-%{majorminor}
 %doc %{_datadir}/gtk-doc/html/gstreamer-libs-%{majorminor}
@@ -196,6 +204,20 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 
 
 %changelog
+* Thu Mar 09 2017 Wim Taymans <wtaymans@redhat.com> - 1.10.4-2
+- fix origin
+- Resolves: #1420650
+
+* Fri Feb 24 2017 Wim Taymans <wtaymans@redhat.com> - 1.10.4-1
+- Update to 1.10.4
+- update patches
+- Resolves: #1420650
+
+* Wed Jan 28 2015 Bastien Nocera <bnocera@redhat.com> 1.4.5-1
+- Update to 1.4.5
+- Add patch to gst-inspect to generate RPM provides
+- Resolves: #1174394
+
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 1.0.7-4
 - Mass rebuild 2014-01-24
 

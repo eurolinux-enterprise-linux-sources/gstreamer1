@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  *
  */
 
@@ -26,14 +26,9 @@
  * The valve is a simple element that drops buffers when the #GstValve:drop
  * property is set to %TRUE and lets then through otherwise.
  *
- * Any downstream error received while the #GstValve:drop property is %FALSE
+ * Any downstream error received while the #GstValve:drop property is %TRUE
  * is ignored. So downstream element can be set to  %GST_STATE_NULL and removed,
  * without using pad blocking.
- *
- * This element was previously part of gst-plugins-farsight, and then
- * gst-plugins-bad.
- *
- * Documentation last reviewed on 2010-12-30 (0.10.31)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -72,7 +67,7 @@ static void gst_valve_get_property (GObject * object,
 
 static GstFlowReturn gst_valve_chain (GstPad * pad, GstObject * parent,
     GstBuffer * buffer);
-static gboolean gst_valve_event (GstPad * pad, GstObject * parent,
+static gboolean gst_valve_sink_event (GstPad * pad, GstObject * parent,
     GstEvent * event);
 static gboolean gst_valve_query (GstPad * pad, GstObject * parent,
     GstQuery * query);
@@ -97,12 +92,11 @@ gst_valve_class_init (GstValveClass * klass)
   g_object_class_install_property (gobject_class, PROP_DROP,
       g_param_spec_boolean ("drop", "Drop buffers and events",
           "Whether to drop buffers and events or let them through",
-          DEFAULT_DROP, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+          DEFAULT_DROP, G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING |
+          G_PARAM_STATIC_STRINGS));
 
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&srctemplate));
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&sinktemplate));
+  gst_element_class_add_static_pad_template (gstelement_class, &srctemplate);
+  gst_element_class_add_static_pad_template (gstelement_class, &sinktemplate);
 
   gst_element_class_set_static_metadata (gstelement_class, "Valve element",
       "Filter", "Drops buffers and events or lets them through",
@@ -116,20 +110,20 @@ gst_valve_init (GstValve * valve)
   valve->discont = FALSE;
 
   valve->srcpad = gst_pad_new_from_static_template (&srctemplate, "src");
-  gst_pad_set_event_function (valve->srcpad,
-      GST_DEBUG_FUNCPTR (gst_valve_event));
   gst_pad_set_query_function (valve->srcpad,
       GST_DEBUG_FUNCPTR (gst_valve_query));
+  GST_PAD_SET_PROXY_CAPS (valve->srcpad);
   gst_element_add_pad (GST_ELEMENT (valve), valve->srcpad);
 
   valve->sinkpad = gst_pad_new_from_static_template (&sinktemplate, "sink");
   gst_pad_set_chain_function (valve->sinkpad,
       GST_DEBUG_FUNCPTR (gst_valve_chain));
   gst_pad_set_event_function (valve->sinkpad,
-      GST_DEBUG_FUNCPTR (gst_valve_event));
+      GST_DEBUG_FUNCPTR (gst_valve_sink_event));
   gst_pad_set_query_function (valve->sinkpad,
       GST_DEBUG_FUNCPTR (gst_valve_query));
   GST_PAD_SET_PROXY_CAPS (valve->sinkpad);
+  GST_PAD_SET_PROXY_ALLOCATION (valve->sinkpad);
   gst_element_add_pad (GST_ELEMENT (valve), valve->sinkpad);
 }
 
@@ -220,15 +214,16 @@ gst_valve_chain (GstPad * pad, GstObject * parent, GstBuffer * buffer)
 
 
 static gboolean
-gst_valve_event (GstPad * pad, GstObject * parent, GstEvent * event)
+gst_valve_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
 {
   GstValve *valve;
+  gboolean is_sticky = GST_EVENT_IS_STICKY (event);
   gboolean ret = TRUE;
 
   valve = GST_VALVE (parent);
 
   if (g_atomic_int_get (&valve->drop)) {
-    valve->need_repush_sticky |= GST_EVENT_IS_STICKY (event);
+    valve->need_repush_sticky |= is_sticky;
     gst_event_unref (event);
   } else {
     if (valve->need_repush_sticky)
@@ -240,7 +235,7 @@ gst_valve_event (GstPad * pad, GstObject * parent, GstEvent * event)
    * downwards.
    */
   if (g_atomic_int_get (&valve->drop)) {
-    valve->need_repush_sticky |= GST_EVENT_IS_STICKY (event);
+    valve->need_repush_sticky |= is_sticky;
     ret = TRUE;
   }
 
@@ -254,7 +249,7 @@ gst_valve_query (GstPad * pad, GstObject * parent, GstQuery * query)
 {
   GstValve *valve = GST_VALVE (parent);
 
-  if (g_atomic_int_get (&valve->drop))
+  if (GST_QUERY_IS_SERIALIZED (query) && g_atomic_int_get (&valve->drop))
     return FALSE;
 
   return gst_pad_query_default (pad, parent, query);

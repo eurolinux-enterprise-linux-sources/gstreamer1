@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_BUFFER_LIST_H__
@@ -38,7 +38,7 @@ typedef struct _GstBufferList GstBufferList;
 
 /**
  * GstBufferListFunc:
- * @buffer: pointer the buffer
+ * @buffer: (out) (nullable): pointer the buffer
  * @idx: the index of @buffer
  * @user_data: user data passed to gst_buffer_list_foreach()
  *
@@ -48,7 +48,7 @@ typedef struct _GstBufferList GstBufferList;
  * When this function returns %TRUE, the next buffer will be
  * returned. When %FALSE is returned, gst_buffer_list_foreach() will return.
  *
- * When @buffer is set to NULL, the item will be removed from the bufferlist.
+ * When @buffer is set to %NULL, the item will be removed from the bufferlist.
  * When @buffer has been made writable, the new buffer reference can be assigned
  * to @buffer. This function is responsible for unreffing the old buffer when
  * removing or modifying.
@@ -66,17 +66,13 @@ typedef gboolean   (*GstBufferListFunc)   (GstBuffer **buffer, guint idx,
  *
  * Increases the refcount of the given buffer list by one.
  *
- * Note that the refcount affects the writeability of @list and its data, see
+ * Note that the refcount affects the writability of @list and its data, see
  * gst_buffer_list_make_writable(). It is important to note that keeping
  * additional references to GstBufferList instances can potentially increase
  * the number of memcpy operations in a pipeline.
  *
  * Returns: (transfer full): @list
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstBufferList * gst_buffer_list_ref (GstBufferList * list);
-#endif
-
 static inline GstBufferList *
 gst_buffer_list_ref (GstBufferList * list)
 {
@@ -91,10 +87,6 @@ gst_buffer_list_ref (GstBufferList * list)
  * Decreases the refcount of the buffer list. If the refcount reaches 0, the
  * buffer list will be freed.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC void gst_buffer_list_unref (GstBufferList * list);
-#endif
-
 static inline void
 gst_buffer_list_unref (GstBufferList * list)
 {
@@ -112,10 +104,6 @@ gst_buffer_list_unref (GstBufferList * list)
  *
  * Returns: (transfer full): a new copy of @list.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstBufferList * gst_buffer_list_copy (const GstBufferList * list);
-#endif
-
 static inline GstBufferList *
 gst_buffer_list_copy (const GstBufferList * list)
 {
@@ -158,8 +146,13 @@ void                     gst_buffer_list_remove                (GstBufferList *l
 gboolean                 gst_buffer_list_foreach               (GstBufferList *list,
                                                                 GstBufferListFunc func,
 								gpointer user_data);
+GstBufferList *          gst_buffer_list_copy_deep             (const GstBufferList * list);
 
 #define gst_buffer_list_add(l,b) gst_buffer_list_insert((l),-1,(b));
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBufferList, gst_buffer_list_unref)
+#endif
 
 G_END_DECLS
 

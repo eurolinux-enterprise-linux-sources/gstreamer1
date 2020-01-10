@@ -1,10 +1,10 @@
 %define		gstreamer	gstreamer1
 %define		majorminor	1.0
 
-%define 	_glib2		2.32.0
+%define 	_glib2		2.40.0
 
 Name: 		%{gstreamer}
-Version: 	1.0.7
+Version: 	1.10.4
 Release: 	1
 Summary: 	GStreamer streaming media framework runtime
 
@@ -33,12 +33,9 @@ BuildRequires:	libxslt
 BuildRequires:  docbook-style-dsssl
 BuildRequires:  docbook-style-xsl
 BuildRequires:  docbook-utils
-BuildRequires:	transfig
-BuildRequires:  xfig
 BuildRequires:  netpbm-progs
 BuildRequires:  tetex-dvips
 BuildRequires:  ghostscript
-BuildRequires:  PyXML
 
 %description
 GStreamer is a streaming media framework, based on graphs of filters which

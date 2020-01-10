@@ -16,18 +16,12 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
-#endif
-
-#ifdef HAVE_VALGRIND_H
-# include <valgrind/valgrind.h>
-#else
-# define RUNNING_ON_VALGRIND FALSE
 #endif
 
 #include <gst/check/gstcheck.h>
@@ -294,6 +288,33 @@ GST_START_TEST (test_metadata_writable)
 
 GST_END_TEST;
 
+GST_START_TEST (test_memcmp)
+{
+  GstBuffer *buffer;
+  char buf[3] = { 0, 0, 0 };
+
+  buffer = gst_buffer_new_and_alloc (2);
+  gst_buffer_memset (buffer, 0, 0, 2);
+
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 2) == 0);
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 1) == 0);
+  fail_unless (gst_buffer_memcmp (buffer, 1, buf, 1) == 0);
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 3) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 2, buf, 1) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 4, buf, 1) != 0);
+
+  gst_buffer_memset (buffer, 0, 0x20, 2);
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 2) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 1) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 1, buf, 1) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 0, buf, 3) != 0);
+  fail_unless (gst_buffer_memcmp (buffer, 2, buf, 1) != 0);
+
+  gst_buffer_unref (buffer);
+}
+
+GST_END_TEST;
+
 GST_START_TEST (test_copy)
 {
   GstBuffer *buffer, *copy;
@@ -313,6 +334,8 @@ GST_START_TEST (test_copy)
 
   /* NOTE that data is refcounted */
   fail_unless (info.size == sinfo.size);
+  /* GstBuffer was copied but the underlying GstMemory should be the same */
+  fail_unless (info.data == sinfo.data);
 
   gst_buffer_unmap (copy, &sinfo);
   gst_buffer_unmap (buffer, &info);
@@ -352,12 +375,12 @@ GST_START_TEST (test_copy)
   /* copy should still be independent if copied when mapped */
   buffer = gst_buffer_new_and_alloc (4);
   gst_buffer_memset (buffer, 0, 0, 4);
-  gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+  fail_unless (gst_buffer_map (buffer, &info, GST_MAP_WRITE));
   copy = gst_buffer_copy (buffer);
   fail_unless (gst_buffer_is_writable (copy));
   gst_buffer_memset (copy, 0, 0x80, 4);
   gst_buffer_unmap (buffer, &info);
-  gst_buffer_map (buffer, &info, GST_MAP_READ);
+  fail_unless (gst_buffer_map (buffer, &info, GST_MAP_READ));
   fail_if (gst_buffer_memcmp (copy, 0, info.data, info.size) == 0);
   gst_buffer_unmap (buffer, &info);
 
@@ -373,6 +396,37 @@ GST_START_TEST (test_copy)
   gst_buffer_memset (copy, 0, 0x80, 4);
   gst_buffer_map (buffer, &info, GST_MAP_READ);
   fail_if (gst_buffer_memcmp (copy, 0, info.data, info.size) == 0);
+  gst_buffer_unmap (buffer, &info);
+
+  gst_buffer_unref (copy);
+  gst_buffer_unref (buffer);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_copy_deep)
+{
+  GstBuffer *buffer, *copy;
+  GstMapInfo info, sinfo;
+
+  buffer = gst_buffer_new_and_alloc (4);
+  ASSERT_BUFFER_REFCOUNT (buffer, "buffer", 1);
+
+  copy = gst_buffer_copy_deep (buffer);
+  ASSERT_BUFFER_REFCOUNT (buffer, "buffer", 1);
+  ASSERT_BUFFER_REFCOUNT (copy, "copy", 1);
+  /* buffers are copied and must point to different memory */
+  fail_if (buffer == copy);
+
+  fail_unless (gst_buffer_map (buffer, &info, GST_MAP_READ));
+  fail_unless (gst_buffer_map (copy, &sinfo, GST_MAP_READ));
+
+  /* NOTE that data is refcounted */
+  fail_unless (info.size == sinfo.size);
+  /* copy_deep() forces new GstMemory to be used */
+  fail_unless (info.data != sinfo.data);
+
+  gst_buffer_unmap (copy, &sinfo);
   gst_buffer_unmap (buffer, &info);
 
   gst_buffer_unref (copy);
@@ -406,20 +460,6 @@ GST_START_TEST (test_try_new_and_alloc)
   gst_buffer_unmap (buf, &info);
 
   gst_buffer_unref (buf);
-
-#if 0
-  /* Disabled this part of the test, because it happily succeeds on 64-bit
-   * machines that have enough memory+swap, because the address space is large
-   * enough. There's not really any way to test the failure case except by 
-   * allocating chunks of memory until it fails, which would suck. */
-
-  /* now this better fail (don't run in valgrind, it will abort
-   * or warn when passing silly arguments to malloc) */
-  if (!RUNNING_ON_VALGRIND) {
-    buf = gst_buffer_new_and_alloc ((guint) - 1);
-    fail_unless (buf == NULL);
-  }
-#endif
 }
 
 GST_END_TEST;
@@ -659,6 +699,55 @@ GST_START_TEST (test_map)
 
 GST_END_TEST;
 
+GST_START_TEST (test_map_range)
+{
+  GstBuffer *buf;
+  GstMapInfo map;
+  gsize maxalloc;
+  gsize size, offset;
+
+  buf = gst_buffer_new ();
+  gst_buffer_insert_memory (buf, -1, gst_allocator_alloc (NULL, 50, NULL));
+  gst_buffer_insert_memory (buf, -1, gst_allocator_alloc (NULL, 50, NULL));
+  gst_buffer_insert_memory (buf, -1, gst_allocator_alloc (NULL, 50, NULL));
+
+  size = gst_buffer_get_sizes (buf, &offset, &maxalloc);
+  fail_unless (size == 150);
+  fail_unless (offset == 0);
+  fail_unless (maxalloc >= 150);
+  fail_unless (gst_buffer_n_memory (buf) == 3);
+
+  gst_buffer_ref (buf);
+  /* map should merge */
+  gst_buffer_map_range (buf, 1, 2, &map, GST_MAP_READ);
+  /* merged memory is not stored */
+  fail_unless (gst_buffer_n_memory (buf) == 3);
+  fail_unless (map.size == 100);
+  gst_buffer_unmap (buf, &map);
+
+  fail_unless (gst_buffer_n_memory (buf) == 3);
+
+  gst_buffer_unref (buf);
+
+  /* map should merge */
+  gst_buffer_map_range (buf, 1, 2, &map, GST_MAP_READ);
+  /* merged memory is stored */
+  fail_unless (gst_buffer_n_memory (buf) == 2);
+  fail_unless (map.size == 100);
+  gst_buffer_unmap (buf, &map);
+
+  fail_unless (gst_buffer_n_memory (buf) == 2);
+
+  /* should merge and store */
+  gst_buffer_map (buf, &map, GST_MAP_READ);
+  fail_unless (gst_buffer_n_memory (buf) == 1);
+  gst_buffer_unmap (buf, &map);
+
+  gst_buffer_unref (buf);
+}
+
+GST_END_TEST;
+
 GST_START_TEST (test_find)
 {
   GstBuffer *buf;
@@ -742,6 +831,64 @@ GST_START_TEST (test_find)
 
 GST_END_TEST;
 
+GST_START_TEST (test_fill)
+{
+  GstBuffer *buf;
+  guint8 data[1024], data2[25];
+  gint i;
+
+  buf = gst_buffer_new ();
+  gst_buffer_append_memory (buf, gst_allocator_alloc (NULL, 0, NULL));
+  gst_buffer_append_memory (buf, gst_allocator_alloc (NULL, 10, NULL));
+  gst_buffer_append_memory (buf, gst_allocator_alloc (NULL, 15, NULL));
+  gst_buffer_append_memory (buf, gst_allocator_alloc (NULL, 0, NULL));
+
+  for (i = 0; i < G_N_ELEMENTS (data); ++i)
+    data[i] = i & 0xff;
+
+  /* a NULL src pointer should be ok if the src length is 0 bytes */
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, NULL, 0), 0);
+  fail_unless_equals_int (gst_buffer_fill (buf, 20, NULL, 0), 0);
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 0), 0);
+
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 1), 1);
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 11), 11);
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 15), 15);
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 25), 25);
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data, 26), 25);
+  fail_unless_equals_int (gst_buffer_fill (buf, 1, data, 26), 24);
+  fail_unless_equals_int (gst_buffer_fill (buf, 10, data, 100), 15);
+  fail_unless_equals_int (gst_buffer_fill (buf, 11, data, 100), 14);
+  fail_unless_equals_int (gst_buffer_fill (buf, 25, data, 100), 0);
+
+  fail_unless_equals_int (gst_buffer_fill (buf, 0, data + 10, 25), 25);
+  fail_unless_equals_int (gst_buffer_extract (buf, 0, data2, 25), 25);
+  fail_unless (memcmp (data2, data + 10, 25) == 0);
+
+  gst_buffer_unref (buf);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_parent_buffer_meta)
+{
+  GstBuffer *buf, *parent;
+  GstParentBufferMeta *meta;
+
+  buf = gst_buffer_new ();
+  parent = gst_buffer_new ();
+
+  gst_buffer_add_parent_buffer_meta (buf, parent);
+  meta = gst_buffer_get_parent_buffer_meta (buf);
+  fail_unless (meta);
+  fail_unless (parent == meta->buffer);
+
+  gst_buffer_unref (buf);
+  gst_buffer_unref (parent);
+}
+
+GST_END_TEST;
+
 
 static Suite *
 gst_buffer_suite (void)
@@ -755,12 +902,17 @@ gst_buffer_suite (void)
   tcase_add_test (tc_chain, test_make_writable);
   tcase_add_test (tc_chain, test_span);
   tcase_add_test (tc_chain, test_metadata_writable);
+  tcase_add_test (tc_chain, test_memcmp);
   tcase_add_test (tc_chain, test_copy);
+  tcase_add_test (tc_chain, test_copy_deep);
   tcase_add_test (tc_chain, test_try_new_and_alloc);
   tcase_add_test (tc_chain, test_size);
   tcase_add_test (tc_chain, test_resize);
   tcase_add_test (tc_chain, test_map);
+  tcase_add_test (tc_chain, test_map_range);
   tcase_add_test (tc_chain, test_find);
+  tcase_add_test (tc_chain, test_fill);
+  tcase_add_test (tc_chain, test_parent_buffer_meta);
 
   return s;
 }

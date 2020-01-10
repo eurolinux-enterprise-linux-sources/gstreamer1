@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -30,11 +30,11 @@
  * #GInitiallyUnowned. It is an abstract class that is not very usable on its own.
  *
  * #GstObject gives us basic refcounting, parenting functionality and locking.
- * Most of the function are just extended for special GStreamer needs and can be
+ * Most of the functions are just extended for special GStreamer needs and can be
  * found under the same name in the base class of #GstObject which is #GObject
  * (e.g. g_object_ref() becomes gst_object_ref()).
  *
- * Since #GstObject dereives from #GInitiallyUnowned, it also inherits the
+ * Since #GstObject derives from #GInitiallyUnowned, it also inherits the
  * floating reference. Be aware that functions such as gst_bin_add() and
  * gst_element_add_pad() take ownership of the floating reference.
  *
@@ -45,10 +45,10 @@
  * <refsect2>
  * <title>controlled properties</title>
  * <para>
- * Controlled properties offers a lightweight way to adjust gobject
- * properties over stream-time. It works by using time-stamped value pairs that
- * are queued for element-properties. At run-time the elements continously pull
- * values changes for the current stream-time.
+ * Controlled properties offers a lightweight way to adjust gobject properties
+ * over stream-time. It works by using time-stamped value pairs that are queued
+ * for element-properties. At run-time the elements continuously pull value
+ * changes for the current stream-time.
  *
  * What needs to be changed in a #GstElement?
  * Very little - it is just two steps to make a plugin controllable!
@@ -60,8 +60,8 @@
  *   <listitem><para>
  *     when processing data (get, chain, loop function) at the beginning call
  *     gst_object_sync_values(element,timestamp).
- *     This will made the controller to update all gobject properties that are under
- *     control with the current values based on timestamp.
+ *     This will make the controller update all GObject properties that are
+ *     under its control with the current values based on the timestamp.
  *   </para></listitem>
  * </orderedlist>
  *
@@ -88,8 +88,6 @@
  * </orderedlist>
  * </para>
  * </refsect2>
- *
- * Last reviewed on 2012-03-29 (0.11.3)
  */
 
 #include "gst_private.h"
@@ -102,11 +100,6 @@
 #include "gstinfo.h"
 #include "gstparamspecs.h"
 #include "gstutils.h"
-
-#ifndef GST_DISABLE_TRACE
-#include "gsttrace.h"
-static GstAllocTrace *_gst_object_trace;
-#endif
 
 #define DEBUG_REFCOUNT
 
@@ -156,14 +149,17 @@ static GParamSpec *properties[PROP_LAST];
 G_DEFINE_ABSTRACT_TYPE (GstObject, gst_object, G_TYPE_INITIALLY_UNOWNED);
 
 static void
+gst_object_constructed (GObject * object)
+{
+  GST_TRACER_OBJECT_CREATED (GST_OBJECT_CAST (object));
+
+  ((GObjectClass *) gst_object_parent_class)->constructed (object);
+}
+
+static void
 gst_object_class_init (GstObjectClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-#ifndef GST_DISABLE_TRACE
-  _gst_object_trace =
-      _gst_alloc_trace_register (g_type_name (GST_TYPE_OBJECT), -2);
-#endif
 
   gobject_class->set_property = gst_object_set_property;
   gobject_class->get_property = gst_object_get_property;
@@ -172,6 +168,15 @@ gst_object_class_init (GstObjectClass * klass)
       g_param_spec_string ("name", "Name", "The name of the object", NULL,
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
 
+  /**
+   * GstObject:parent:
+   *
+   * The parent of the object. Please note, that when changing the 'parent'
+   * property, we don't emit #GObject::notify and #GstObject::deep-notify
+   * signals due to locking issues. In some cases one can use
+   * #GstBin::element-added or #GstBin::element-removed signals on the parent to
+   * achieve a similar effect.
+   */
   properties[PROP_PARENT] =
       g_param_spec_object ("parent", "Parent", "The parent of the object",
       GST_TYPE_OBJECT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
@@ -201,6 +206,7 @@ gst_object_class_init (GstObjectClass * klass)
   gobject_class->dispatch_properties_changed
       = GST_DEBUG_FUNCPTR (gst_object_dispatch_properties_changed);
 
+  gobject_class->constructed = gst_object_constructed;
   gobject_class->dispose = gst_object_dispose;
   gobject_class->finalize = gst_object_finalize;
 }
@@ -212,10 +218,6 @@ gst_object_init (GstObject * object)
   object->parent = NULL;
   object->name = NULL;
   GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p new", object);
-
-#ifndef GST_DISABLE_TRACE
-  _gst_alloc_trace_new (_gst_object_trace, object);
-#endif
 
   object->flags = 0;
 
@@ -303,17 +305,17 @@ gst_object_ref_sink (gpointer object)
 
 /**
  * gst_object_replace:
- * @oldobj: (inout) (transfer full): pointer to a place of a #GstObject to
- *     replace
- * @newobj: (transfer none): a new #GstObject
+ * @oldobj: (inout) (transfer full) (nullable): pointer to a place of
+ *     a #GstObject to replace
+ * @newobj: (transfer none) (allow-none): a new #GstObject
  *
  * Atomically modifies a pointer to point to a new object.
  * The reference count of @oldobj is decreased and the reference count of
  * @newobj is increased.
  *
- * Either @newobj and the value pointed to by @oldobj may be NULL.
+ * Either @newobj and the value pointed to by @oldobj may be %NULL.
  *
- * Returns: TRUE if @newobj was different from @oldobj
+ * Returns: %TRUE if @newobj was different from @oldobj
  */
 gboolean
 gst_object_replace (GstObject ** oldobj, GstObject * newobj)
@@ -359,7 +361,7 @@ gst_object_dispose (GObject * object)
   GstObject *self = (GstObject *) object;
   GstObject *parent;
 
-  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "dispose");
+  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p dispose", object);
 
   GST_OBJECT_LOCK (object);
   if ((parent = GST_OBJECT_PARENT (object)))
@@ -401,16 +403,14 @@ gst_object_finalize (GObject * object)
 {
   GstObject *gstobject = GST_OBJECT_CAST (object);
 
-  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "finalize");
+  GST_CAT_TRACE_OBJECT (GST_CAT_REFCOUNTING, object, "%p finalize", object);
 
   g_signal_handlers_destroy (object);
 
   g_free (gstobject->name);
   g_mutex_clear (&gstobject->lock);
 
-#ifndef GST_DISABLE_TRACE
-  _gst_alloc_trace_free (_gst_object_trace, object);
-#endif
+  GST_TRACER_OBJECT_DESTROYED (gstobject);
 
   ((GObjectClass *) gst_object_parent_class)->finalize (object);
 }
@@ -474,7 +474,7 @@ gst_object_dispatch_properties_changed (GObject * object,
  * @orig: a #GstObject that initiated the notify.
  * @pspec: a #GParamSpec of the property.
  * @excluded_props: (array zero-terminated=1) (element-type gchar*) (allow-none):
- *     a set of user-specified properties to exclude or NULL to show
+ *     a set of user-specified properties to exclude or %NULL to show
  *     all changes.
  *
  * A default deep_notify signal callback for an object. The user data
@@ -581,15 +581,15 @@ had_parent:
 /**
  * gst_object_set_name:
  * @object: a #GstObject
- * @name:   new name of object
+ * @name: (allow-none): new name of object
  *
  * Sets the name of @object, or gives @object a guaranteed unique
- * name (if @name is NULL).
+ * name (if @name is %NULL).
  * This function makes a copy of the provided name, so the caller
  * retains ownership of the name it sent.
  *
- * Returns: TRUE if the name could be set. Since Objects that have
- * a parent cannot be renamed, this function returns FALSE in those
+ * Returns: %TRUE if the name could be set. Since Objects that have
+ * a parent cannot be renamed, this function returns %FALSE in those
  * cases.
  *
  * MT safe.  This function grabs and releases @object's LOCK.
@@ -616,10 +616,8 @@ gst_object_set_name (GstObject * object, const gchar * name)
     GST_OBJECT_UNLOCK (object);
     result = gst_object_set_name_default (object);
   }
-  /* FIXME-0.11: this misses a g_object_notify (object, "name"); unless called
-   * from gst_object_set_property.
-   * Ideally remove such custom setters (or make it static).
-   */
+
+  g_object_notify (G_OBJECT (object), "name");
   return result;
 
   /* error */
@@ -637,12 +635,13 @@ had_parent:
  *
  * Returns a copy of the name of @object.
  * Caller should g_free() the return value after usage.
- * For a nameless object, this returns NULL, which you can safely g_free()
+ * For a nameless object, this returns %NULL, which you can safely g_free()
  * as well.
  *
  * Free-function: g_free
  *
- * Returns: (transfer full): the name of @object. g_free() after usage.
+ * Returns: (transfer full) (nullable): the name of @object. g_free()
+ * after usage.
  *
  * MT safe. This function grabs and releases @object's LOCK.
  */
@@ -668,7 +667,7 @@ gst_object_get_name (GstObject * object)
  * Sets the parent of @object to @parent. The object's reference count will
  * be incremented, and any floating reference will be removed (see gst_object_ref_sink()).
  *
- * Returns: TRUE if @parent could be set or FALSE when @object
+ * Returns: %TRUE if @parent could be set or %FALSE when @object
  * already had a parent or @object and @parent are the same.
  *
  * MT safe. Grabs and releases @object's LOCK.
@@ -691,9 +690,11 @@ gst_object_set_parent (GstObject * object, GstObject * parent)
   gst_object_ref_sink (object);
   GST_OBJECT_UNLOCK (object);
 
-  /* FIXME, this does not work, the deep notify takes the lock from the parent
-   * object and deadlocks when the parent holds its lock when calling this
-   * function (like _element_add_pad()) */
+  /* FIXME-2.0: this does not work, the deep notify takes the lock from the
+   * parent object and deadlocks when the parent holds its lock when calling
+   * this function (like _element_add_pad()), we need to use a GRecMutex
+   * for locking the parent instead.
+   */
   /* g_object_notify_by_pspec ((GObject *)object, properties[PROP_PARENT]); */
 
   return TRUE;
@@ -715,8 +716,8 @@ had_parent:
  * Returns the parent of @object. This function increases the refcount
  * of the parent object so you should gst_object_unref() it after usage.
  *
- * Returns: (transfer full): parent of @object, this can be NULL if @object
- *   has no parent. unref after usage.
+ * Returns: (transfer full) (nullable): parent of @object, this can be
+ *   %NULL if @object has no parent. unref after usage.
  *
  * MT safe. Grabs and releases @object's LOCK.
  */
@@ -769,19 +770,47 @@ gst_object_unparent (GstObject * object)
 }
 
 /**
- * gst_object_has_ancestor:
+ * gst_object_has_as_parent:
+ * @object: a #GstObject to check
+ * @parent: a #GstObject to check as parent
+ *
+ * Check if @parent is the parent of @object.
+ * E.g. a #GstElement can check if it owns a given #GstPad.
+ *
+ * Returns: %FALSE if either @object or @parent is %NULL. %TRUE if @parent is
+ *          the parent of @object. Otherwise %FALSE.
+ *
+ * MT safe. Grabs and releases @object's locks.
+ * Since: 1.6
+ */
+gboolean
+gst_object_has_as_parent (GstObject * object, GstObject * parent)
+{
+  gboolean result = FALSE;
+
+  if (G_LIKELY (GST_IS_OBJECT (object) && GST_IS_OBJECT (parent))) {
+    GST_OBJECT_LOCK (object);
+    result = GST_OBJECT_PARENT (object) == parent;
+    GST_OBJECT_UNLOCK (object);
+  }
+
+  return result;
+}
+
+/**
+ * gst_object_has_as_ancestor:
  * @object: a #GstObject to check
  * @ancestor: a #GstObject to check as ancestor
  *
  * Check if @object has an ancestor @ancestor somewhere up in
  * the hierarchy. One can e.g. check if a #GstElement is inside a #GstPipeline.
  *
- * Returns: TRUE if @ancestor is an ancestor of @object.
+ * Returns: %TRUE if @ancestor is an ancestor of @object.
  *
  * MT safe. Grabs and releases @object's locks.
  */
 gboolean
-gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
+gst_object_has_as_ancestor (GstObject * object, GstObject * ancestor)
 {
   GstObject *parent, *tmp;
 
@@ -804,6 +833,32 @@ gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
 }
 
 /**
+ * gst_object_has_ancestor:
+ * @object: a #GstObject to check
+ * @ancestor: a #GstObject to check as ancestor
+ *
+ * Check if @object has an ancestor @ancestor somewhere up in
+ * the hierarchy. One can e.g. check if a #GstElement is inside a #GstPipeline.
+ *
+ * Returns: %TRUE if @ancestor is an ancestor of @object.
+ *
+ * Deprecated: Use gst_object_has_as_ancestor() instead.
+ *
+ * MT safe. Grabs and releases @object's locks.
+ */
+/* FIXME 2.0: remove */
+#ifndef GST_REMOVE_DEPRECATED
+#ifdef GST_DISABLE_DEPRECATED
+gboolean gst_object_has_ancestor (GstObject * object, GstObject * ancestor);
+#endif
+gboolean
+gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
+{
+  return gst_object_has_as_ancestor (object, ancestor);
+}
+#endif
+
+/**
  * gst_object_check_uniqueness:
  * @list: (transfer none) (element-type Gst.Object): a list of #GstObject to
  *      check through
@@ -813,10 +868,10 @@ gst_object_has_ancestor (GstObject * object, GstObject * ancestor)
  * does not do any locking of any kind. You might want to protect the
  * provided list with the lock of the owner of the list. This function
  * will lock each #GstObject in the list to compare the name, so be
- * carefull when passing a list with a locked object.
+ * careful when passing a list with a locked object.
  *
- * Returns: TRUE if a #GstObject named @name does not appear in @list,
- * FALSE if it does.
+ * Returns: %TRUE if a #GstObject named @name does not appear in @list,
+ * %FALSE if it does.
  *
  * MT safe. Grabs and releases the LOCK of each object in the list.
  */
@@ -921,7 +976,7 @@ gst_object_get_path_string (GstObject * object)
   path = g_strdup ("");
 
   /* first walk the object hierarchy to build a list of the parents,
-   * be carefull here with refcounting. */
+   * be careful here with refcounting. */
   do {
     if (GST_IS_OBJECT (object)) {
       parent = gst_object_get_parent (object);
@@ -983,8 +1038,8 @@ gst_object_get_path_string (GstObject * object)
  *
  * Searches the list of properties under control.
  *
- * Returns: a #GstControlBinding or %NULL if the property is not being
- * controlled.
+ * Returns: (nullable): a #GstControlBinding or %NULL if the property
+ * is not being controlled.
  */
 static GstControlBinding *
 gst_object_find_control_binding (GstObject * self, const gchar * name)
@@ -1085,7 +1140,7 @@ gst_object_sync_values (GstObject * object, GstClockTime timestamp)
  * gst_object_has_active_control_bindings:
  * @object: the object that has controlled properties
  *
- * Check if the @object has an active controlled properties.
+ * Check if the @object has active controlled properties.
  *
  * Returns: %TRUE if the object has active controlled properties
  */
@@ -1136,8 +1191,8 @@ gst_object_set_control_bindings_disabled (GstObject * object, gboolean disabled)
  * @disabled: boolean that specifies whether to disable the controller
  * or not.
  *
- * This function is used to disable the #GstController on a property for
- * some time, i.e. gst_controller_sync_values() will do nothing for the
+ * This function is used to disable the control bindings on a property for
+ * some time, i.e. gst_object_sync_values() will do nothing for the
  * property.
  */
 void
@@ -1162,12 +1217,13 @@ gst_object_set_control_binding_disabled (GstObject * object,
  * @object: the controller object
  * @binding: (transfer full): the #GstControlBinding that should be used
  *
- * Sets the #GstControlBinding. If there already was a #GstControlBinding
- * for this property it will be replaced.
+ * Attach the #GstControlBinding to the object. If there already was a
+ * #GstControlBinding for this property it will be replaced.
+ *
  * The @object will take ownership of the @binding.
  *
- * Returns: %FALSE if the given @binding has not been setup for this object  or
- * %TRUE otherwise.
+ * Returns: %FALSE if the given @binding has not been setup for this object or
+ * has been setup for a non suitable property, %TRUE otherwise.
  */
 gboolean
 gst_object_add_control_binding (GstObject * object, GstControlBinding * binding)
@@ -1176,6 +1232,7 @@ gst_object_add_control_binding (GstObject * object, GstControlBinding * binding)
 
   g_return_val_if_fail (GST_IS_OBJECT (object), FALSE);
   g_return_val_if_fail (GST_IS_CONTROL_BINDING (binding), FALSE);
+  g_return_val_if_fail (binding->pspec, FALSE);
 
   GST_OBJECT_LOCK (object);
   if ((old = gst_object_find_control_binding (object, binding->name))) {
@@ -1199,8 +1256,8 @@ gst_object_add_control_binding (GstObject * object, GstControlBinding * binding)
  * Gets the corresponding #GstControlBinding for the property. This should be
  * unreferenced again after use.
  *
- * Returns: (transfer full): the #GstControlBinding for @property_name or %NULL if
- * the property is not controlled.
+ * Returns: (transfer full) (nullable): the #GstControlBinding for
+ * @property_name or %NULL if the property is not controlled.
  */
 GstControlBinding *
 gst_object_get_control_binding (GstObject * object, const gchar * property_name)
@@ -1260,8 +1317,8 @@ gst_object_remove_control_binding (GstObject * object,
  *
  * Gets the value for the given controlled property at the requested time.
  *
- * Returns: the GValue of the property at the given time, or %NULL if the
- * property isn't controlled.
+ * Returns: (nullable): the GValue of the property at the given time,
+ * or %NULL if the property isn't controlled.
  */
 GValue *
 gst_object_get_value (GstObject * object, const gchar * property_name,

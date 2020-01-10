@@ -16,11 +16,12 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <glib.h>
+#include <glib-object.h>
 
 #ifndef __GST_ATOMIC_QUEUE_H__
 #define __GST_ATOMIC_QUEUE_H__
@@ -34,7 +35,7 @@ G_BEGIN_DECLS
  *
  * Opaque atomic data queue.
  *
- * Use the acessor functions to get the stored values.
+ * Use the accessor functions to get the stored values.
  */
 typedef struct _GstAtomicQueue GstAtomicQueue;
 
@@ -51,6 +52,10 @@ gpointer           gst_atomic_queue_pop         (GstAtomicQueue* queue);
 gpointer           gst_atomic_queue_peek        (GstAtomicQueue* queue);
 
 guint              gst_atomic_queue_length      (GstAtomicQueue * queue);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstAtomicQueue, gst_atomic_queue_unref)
+#endif
 
 G_END_DECLS
 

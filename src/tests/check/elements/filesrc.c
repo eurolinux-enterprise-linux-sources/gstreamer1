@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <unistd.h>
@@ -83,6 +83,7 @@ setup_filesrc (void)
 static void
 cleanup_filesrc (GstElement * filesrc)
 {
+  gst_check_drop_buffers ();
   gst_pad_set_active (mysinkpad, FALSE);
   gst_check_teardown_sink_pad (filesrc);
   gst_check_teardown_element (filesrc);
@@ -342,11 +343,16 @@ GST_START_TEST (test_uri_interface)
   GstElement *src;
   gchar *location;
   GstBus *bus;
+  GstPad *pad;
 
   src = setup_filesrc ();
   bus = gst_bus_new ();
 
   gst_element_set_bus (src, bus);
+
+  g_object_set (G_OBJECT (src), "location", NULL, NULL);
+  g_object_get (G_OBJECT (src), "location", &location, NULL);
+  fail_unless (location == NULL);
 
   g_object_set (G_OBJECT (src), "location", "/i/do/not/exist", NULL);
   g_object_get (G_OBJECT (src), "location", &location, NULL);
@@ -389,6 +395,25 @@ GST_START_TEST (test_uri_interface)
   /* should fail with other hostnames */
   fail_if (gst_uri_handler_set_uri (GST_URI_HANDLER (src),
           "file://hostname/foo/foo", NULL));
+
+  g_object_set (G_OBJECT (src), "location", TESTFILE, NULL);
+
+  pad = gst_element_get_static_pad (src, "src");
+  fail_unless (pad != NULL);
+  fail_unless (gst_pad_activate_mode (pad, GST_PAD_MODE_PULL, TRUE));
+  gst_object_unref (pad);
+
+  fail_unless (gst_element_set_state (src,
+          GST_STATE_PLAYING) == GST_STATE_CHANGE_SUCCESS,
+      "could not set to playing");
+
+  ASSERT_WARNING (g_object_set (G_OBJECT (src), "location", "/wrong", NULL));
+  g_object_get (G_OBJECT (src), "location", &location, NULL);
+  fail_unless_equals_string (location, TESTFILE);
+  g_free (location);
+
+  fail_unless (gst_element_set_state (src,
+          GST_STATE_NULL) == GST_STATE_CHANGE_SUCCESS, "could not set to null");
 
   /* cleanup */
   gst_element_set_bus (src, NULL);

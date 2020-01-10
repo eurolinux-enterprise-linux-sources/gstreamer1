@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
  
 #ifndef __GST_INPUT_SELECTOR_H__
@@ -66,22 +66,23 @@ struct _GstInputSelector {
   GstPad *srcpad;
 
   GstPad *active_sinkpad;
-  guint n_pads;
-  guint padcount;
+  guint n_pads;           /* number of pads */
+  guint padcount;         /* sequence number for pads */
   gboolean sync_streams;
   GstInputSelectorSyncMode sync_mode;
   gboolean cache_buffers;
 
+  gboolean have_group_id;
+
   GMutex lock;
   GCond cond;
-  gboolean blocked;
+  gboolean eos;
+  gboolean eos_sent;
   gboolean flushing;
 };
 
 struct _GstInputSelectorClass {
   GstElementClass parent_class;
-
-  gint64 (*block)	(GstInputSelector *self);
 };
 
 G_GNUC_INTERNAL GType gst_input_selector_get_type (void);

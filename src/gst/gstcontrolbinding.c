@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:gstcontrolbinding
@@ -35,7 +35,7 @@
  * - the weak-ref on object is not nice, as is the same as gst_object_parent()
  *   once the object is added to the parent
  *
- * - another option would be do defer what I am doing in _constructor to when
+ * - another option would be to defer what is done in _constructor to when
  *   the parent is set (need to listen to the signal then)
  *   then basically I could
  *   a) remove the obj arg and wait the binding to be added or
@@ -71,6 +71,11 @@ static void gst_control_binding_finalize (GObject * object);
 G_DEFINE_ABSTRACT_TYPE_WITH_CODE (GstControlBinding, gst_control_binding,
     GST_TYPE_OBJECT, _do_init);
 
+struct _GstControlBindingPrivate
+{
+  GWeakRef object;
+};
+
 enum
 {
   PROP_0,
@@ -85,6 +90,8 @@ static void
 gst_control_binding_class_init (GstControlBindingClass * klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+
+  g_type_class_add_private (klass, sizeof (GstControlBindingPrivate));
 
   gobject_class->constructor = gst_control_binding_constructor;
   gobject_class->set_property = gst_control_binding_set_property;
@@ -108,6 +115,10 @@ gst_control_binding_class_init (GstControlBindingClass * klass)
 static void
 gst_control_binding_init (GstControlBinding * binding)
 {
+  binding->ABI.abi.priv =
+      G_TYPE_INSTANCE_GET_PRIVATE (binding, GST_TYPE_CONTROL_BINDING,
+      GstControlBindingPrivate);
+  g_weak_ref_init (&binding->ABI.abi.priv->object, NULL);
 }
 
 static GObject *
@@ -116,30 +127,45 @@ gst_control_binding_constructor (GType type, guint n_construct_params,
 {
   GstControlBinding *binding;
   GParamSpec *pspec;
+  GstObject *object;
 
   binding =
       GST_CONTROL_BINDING (G_OBJECT_CLASS (gst_control_binding_parent_class)
       ->constructor (type, n_construct_params, construct_params));
 
-  GST_INFO_OBJECT (binding->object, "trying to put property '%s' under control",
+  object = g_weak_ref_get (&binding->ABI.abi.priv->object);
+  if (!object) {
+    GST_WARNING_OBJECT (object, "no object set");
+    return (GObject *) binding;
+  }
+
+  GST_INFO_OBJECT (object, "trying to put property '%s' under control",
       binding->name);
 
   /* check if the object has a property of that name */
   if ((pspec =
-          g_object_class_find_property (G_OBJECT_GET_CLASS (binding->object),
+          g_object_class_find_property (G_OBJECT_GET_CLASS (object),
               binding->name))) {
-    GST_DEBUG_OBJECT (binding->object, "  psec->flags : 0x%08x", pspec->flags);
+    GST_DEBUG_OBJECT (object, "  psec->flags : 0x%08x", pspec->flags);
 
     /* check if this param is witable && controlable && !construct-only */
     if ((pspec->flags & (G_PARAM_WRITABLE | GST_PARAM_CONTROLLABLE |
                 G_PARAM_CONSTRUCT_ONLY)) ==
         (G_PARAM_WRITABLE | GST_PARAM_CONTROLLABLE)) {
       binding->pspec = pspec;
+    } else {
+      GST_WARNING_OBJECT (object,
+          "property '%s' on class '%s' needs to "
+          "be writeable, controlable and not construct_only", binding->name,
+          G_OBJECT_TYPE_NAME (object));
     }
   } else {
-    GST_WARNING_OBJECT (binding->object, "class '%s' has no property '%s'",
-        G_OBJECT_TYPE_NAME (binding->object), binding->name);
+    GST_WARNING_OBJECT (object, "class '%s' has no property '%s'",
+        G_OBJECT_TYPE_NAME (object), binding->name);
   }
+
+  gst_object_unref (object);
+
   return (GObject *) binding;
 }
 
@@ -149,9 +175,10 @@ gst_control_binding_dispose (GObject * object)
   GstControlBinding *self = GST_CONTROL_BINDING (object);
 
   /* we did not took a reference */
-  g_object_remove_weak_pointer ((GObject *) self->object,
-      (gpointer *) & self->object);
-  self->object = NULL;
+  g_object_remove_weak_pointer ((GObject *) self->__object,
+      (gpointer *) & self->__object);
+  self->__object = NULL;
+  g_weak_ref_clear (&self->ABI.abi.priv->object);
 
   ((GObjectClass *) gst_control_binding_parent_class)->dispose (object);
 }
@@ -175,9 +202,11 @@ gst_control_binding_set_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_OBJECT:
       /* do not ref to avoid a ref cycle */
-      self->object = g_value_get_object (value);
-      g_object_add_weak_pointer ((GObject *) self->object,
-          (gpointer *) & self->object);
+      self->__object = g_value_get_object (value);
+      g_object_add_weak_pointer ((GObject *) self->__object,
+          (gpointer *) & self->__object);
+
+      g_weak_ref_set (&self->ABI.abi.priv->object, self->__object);
       break;
     case PROP_NAME:
       self->name = g_value_dup_string (value);
@@ -196,7 +225,7 @@ gst_control_binding_get_property (GObject * object, guint prop_id,
 
   switch (prop_id) {
     case PROP_OBJECT:
-      g_value_set_object (value, self->object);
+      g_value_take_object (value, g_weak_ref_get (&self->ABI.abi.priv->object));
       break;
     case PROP_NAME:
       g_value_set_string (value, self->name);
@@ -254,8 +283,8 @@ gst_control_binding_sync_values (GstControlBinding * binding,
  *
  * Gets the value for the given controlled property at the requested time.
  *
- * Returns: the GValue of the property at the given time, or %NULL if the
- * property isn't controlled.
+ * Returns: (nullable): the GValue of the property at the given time,
+ * or %NULL if the property isn't controlled.
  */
 GValue *
 gst_control_binding_get_value (GstControlBinding * binding,
@@ -278,12 +307,12 @@ gst_control_binding_get_value (GstControlBinding * binding,
 }
 
 /**
- * gst_control_binding_get_value_array:
+ * gst_control_binding_get_value_array: (skip)
  * @binding: the control binding
  * @timestamp: the time that should be processed
  * @interval: the time spacing between subsequent values
  * @n_values: the number of values
- * @values: array to put control-values in
+ * @values: (array length=n_values): array to put control-values in
  *
  * Gets a number of values for the given controlled property starting at the
  * requested time. The array @values need to hold enough space for @n_values of
@@ -342,7 +371,7 @@ gst_control_binding_get_value_array (GstControlBinding * binding,
  * @timestamp: the time that should be processed
  * @interval: the time spacing between subsequent values
  * @n_values: the number of values
- * @values: array to put control-values in
+ * @values: (array length=n_values): array to put control-values in
  *
  * Gets a number of #GValues for the given controlled property starting at the
  * requested time. The array @values need to hold enough space for @n_values of
@@ -463,5 +492,5 @@ gboolean
 gst_control_binding_is_disabled (GstControlBinding * binding)
 {
   g_return_val_if_fail (GST_IS_CONTROL_BINDING (binding), TRUE);
-  return (binding->disabled == TRUE);
+  return ! !binding->disabled;
 }

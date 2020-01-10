@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.9.7\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2006-01-18 22:26+0200\n"
 "Last-Translator: Ales Nyakhaychyk <nab@mail.by>\n"
 "Language-Team: Belarusian <i18n@mova.org>\n"
@@ -24,8 +24,9 @@ msgstr "Робіць усе папярэджаньні фатальнымі"
 msgid "Print available debug categories and exit"
 msgstr "Друкуе наяўныя катэгорыі адладкі й выходзіць"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Прадвызначаны ўзровень адладкі ад 1 (толькі памылкі) да 5 (усё) ці 0 каб "
 "выключыць вывад"
@@ -46,6 +47,11 @@ msgstr "СЬПІС"
 
 msgid "Disable colored debugging output"
 msgstr "Выключае каляровы вывад адладкі"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Выключае адладку"
@@ -187,6 +193,10 @@ msgstr ""
 msgid "No space left on the resource."
 msgstr ""
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "Немагчыма запісаць у расурс."
+
 msgid "GStreamer encountered a general stream error."
 msgstr ""
 
@@ -234,6 +244,10 @@ msgid "No standard error message for domain %s and code %d."
 msgstr ""
 
 msgid "Selected clock cannot be used in pipeline."
+msgstr ""
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
 msgstr ""
 
 msgid "title"
@@ -429,6 +443,12 @@ msgstr ""
 #, fuzzy
 msgid "person(s) who composed the recording"
 msgstr "асоба(ы) адказныя за запіс"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr ""
@@ -754,7 +774,39 @@ msgstr ""
 msgid "How the image should be rotated or flipped before display"
 msgstr ""
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
+msgstr ""
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
 msgstr ""
 
 #, c-format
@@ -770,11 +822,11 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
+msgid "link has no source [sink=%s@%p]"
 msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
+msgid "link has no sink [source=%s@%p]"
 msgstr ""
 
 #, c-format
@@ -783,6 +835,9 @@ msgstr ""
 
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
+msgstr ""
+
+msgid "Delayed linking failed."
 msgstr ""
 
 #, c-format
@@ -794,21 +849,15 @@ msgid "no element \"%s\""
 msgstr ""
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
-msgstr ""
-
-msgid "link without source element"
-msgstr ""
-
-msgid "link without sink element"
-msgstr ""
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr ""
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
 msgstr ""
 
 #, c-format
@@ -816,19 +865,21 @@ msgid "no sink element for URI \"%s\""
 msgstr ""
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
+msgid "no source element for URI \"%s\""
+msgstr ""
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr ""
+
+#, c-format
+msgid "no bin \"%s\", unpacking elements"
 msgstr ""
 
 msgid "empty pipeline not allowed"
-msgstr ""
-
-msgid "Internal clock error."
-msgstr ""
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
 msgstr ""
 
 msgid "A lot of buffers are being dropped."
@@ -837,7 +888,13 @@ msgstr ""
 msgid "Internal data flow problem."
 msgstr ""
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
+msgstr ""
+
+msgid "Internal clock error."
+msgstr ""
+
+msgid "Failed to map buffer."
 msgstr ""
 
 msgid "Filter caps"
@@ -846,6 +903,26 @@ msgstr ""
 msgid ""
 "Restrict the possible allowed capabilities (NULL means ANY). Setting this "
 "property takes a reference to the supplied GstCaps object."
+msgstr ""
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr ""
+
+#, fuzzy, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Немагчыма закадаваць плыню."
+
+#, fuzzy, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Немагчыма адчыніць расурс для чытаньня."
+
+msgid "Error while writing to download file."
 msgstr ""
 
 msgid "No file name specified for writing."
@@ -871,10 +948,6 @@ msgid "No file name specified for reading."
 msgstr ""
 
 #, fuzzy, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Немагчыма адчыніць расурс для чытаньня."
-
-#, fuzzy, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Немагчыма закадаваць плыню."
 
@@ -887,16 +960,6 @@ msgid "File \"%s\" is a socket."
 msgstr ""
 
 msgid "Failed after iterations as requested."
-msgstr ""
-
-msgid "No Temp directory specified."
-msgstr ""
-
-#, fuzzy, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Немагчыма закадаваць плыню."
-
-msgid "Error while writing to download file."
 msgstr ""
 
 msgid "caps"
@@ -915,6 +978,10 @@ msgid "force caps without doing a typefind"
 msgstr ""
 
 #, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "альбом, якія зьмяшчае гэтыя даньі"
+
+#, fuzzy
 msgid "Stream contains no data."
 msgstr "альбом, якія зьмяшчае гэтыя даньі"
 
@@ -927,6 +994,9 @@ msgstr ""
 #, fuzzy
 msgid "writable"
 msgstr "загаловак"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr ""
@@ -1068,6 +1138,9 @@ msgstr ""
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr ""
 
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+
 msgid "buffering..."
 msgstr ""
 
@@ -1088,7 +1161,15 @@ msgid "Interrupt: Stopping pipeline ...\n"
 msgstr ""
 
 #, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
+#, c-format
 msgid "Missing element: %s\n"
+msgstr ""
+
+#, c-format
+msgid "Got context from element '%s': %s=%s\n"
 msgstr ""
 
 msgid "Output tags (also known as metadata)"
@@ -1106,10 +1187,12 @@ msgstr ""
 msgid "Output messages"
 msgstr ""
 
-msgid "Do not output status information of TYPE"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
 msgstr ""
 
-msgid "TYPE1,TYPE2,..."
+msgid "PROPERTY-NAME"
 msgstr ""
 
 msgid "Do not install a fault handler"

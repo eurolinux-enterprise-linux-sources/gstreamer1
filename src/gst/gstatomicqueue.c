@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include "gst_private.h"
@@ -214,8 +214,8 @@ gst_atomic_queue_unref (GstAtomicQueue * queue)
  *
  * Peek the head element of the queue without removing it from the queue.
  *
- * Returns: (transfer none): the head element of @queue or NULL when
- * the queue is empty.
+ * Returns: (transfer none) (nullable): the head element of @queue or
+ * %NULL when the queue is empty.
  */
 gpointer
 gst_atomic_queue_peek (GstAtomicQueue * queue)
@@ -264,7 +264,7 @@ gst_atomic_queue_peek (GstAtomicQueue * queue)
  *
  * Get the head element of the queue.
  *
- * Returns: (transfer full): the head element of @queue or NULL when
+ * Returns: (transfer full): the head element of @queue or %NULL when
  * the queue is empty.
  */
 gpointer

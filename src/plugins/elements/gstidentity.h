@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -65,6 +65,7 @@ struct _GstIdentity {
   gboolean 	 check_imperfect_timestamp;
   gboolean 	 check_imperfect_offset;
   gboolean	 single_segment;
+  GstBufferFlags drop_buffer_flags;
   GstClockTime   prev_timestamp;
   GstClockTime   prev_duration;
   guint64        prev_offset;
@@ -72,6 +73,9 @@ struct _GstIdentity {
   gchar 	*last_message;
   guint64        offset;
   gboolean       signal_handoffs;
+  GstClockTime   upstream_latency;
+  GCond          blocked_cond;
+  gboolean       blocked;
 };
 
 struct _GstIdentityClass {

@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -66,12 +66,11 @@ struct _GstTee {
   GstElement      element;
 
   /*< private >*/
-  /* lock protecting dynamic pads */
-  GMutex          dyn_lock;
-
   GstPad         *sinkpad;
   GstPad         *allocpad;
-  guint           pad_counter;
+
+  GHashTable     *pad_indexes;
+  guint           next_pad_index;
 
   gboolean        has_chain;
   gboolean        silent;
@@ -80,6 +79,8 @@ struct _GstTee {
   GstPadMode      sink_mode;
   GstTeePullMode  pull_mode;
   GstPad         *pull_pad;
+
+  gboolean        allow_not_linked;
 };
 
 struct _GstTeeClass {

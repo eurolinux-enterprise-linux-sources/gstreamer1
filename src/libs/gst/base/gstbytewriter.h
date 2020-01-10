@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_BYTE_WRITER_H__
@@ -90,11 +90,6 @@ GstBuffer *     gst_byte_writer_reset_and_get_buffer    (GstByteWriter *writer) 
  *
  * Returns: The current, initialized size of the data
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC guint     gst_byte_writer_get_pos  (const GstByteWriter *writer);
-G_INLINE_FUNC gboolean  gst_byte_writer_set_pos  (GstByteWriter *writer, guint pos);
-G_INLINE_FUNC guint     gst_byte_writer_get_size (const GstByteWriter *writer);
-#else
 static inline guint
 gst_byte_writer_get_pos (const GstByteWriter *writer)
 {
@@ -112,7 +107,6 @@ gst_byte_writer_get_size (const GstByteWriter *writer)
 {
   return gst_byte_reader_get_size ((const GstByteReader *) writer);
 }
-#endif
 
 guint           gst_byte_writer_get_remaining     (const GstByteWriter *writer);
 gboolean        gst_byte_writer_ensure_free_space (GstByteWriter *writer, guint size);

@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  *
  * MT safe.
  */
@@ -148,13 +148,11 @@
  * </variablelist>
  *
  * A #GstBin will by default forward any event sent to it to all sink elements.
- * If all the sinks return TRUE, the bin will also return TRUE, else FALSE is
- * returned. If no sinks are in the bin, the event handler will return TRUE.
+ * If all the sinks return %TRUE, the bin will also return %TRUE, else %FALSE is
+ * returned. If no sinks are in the bin, the event handler will return %TRUE.
  *
  * </para>
  * </refsect2>
- *
- * Last reviewed on 2012-03-28 (0.11.3)
  */
 
 #include "gst_private.h"
@@ -198,11 +196,12 @@ struct _GstBinPrivate
   gboolean message_forward;
 
   gboolean posted_eos;
+  gboolean posted_playing;
+  GstElementFlags suppressed_flags;
 };
 
 typedef struct
 {
-  GstBin *bin;
   guint32 cookie;
   GstState pending;
 } BinContinueData;
@@ -216,18 +215,24 @@ static void gst_bin_get_property (GObject * object, guint prop_id,
 
 static GstStateChangeReturn gst_bin_change_state_func (GstElement * element,
     GstStateChange transition);
-static void gst_bin_state_changed (GstElement * element, GstState oldstate,
-    GstState newstate, GstState pending);
+static gboolean gst_bin_post_message (GstElement * element, GstMessage * msg);
 static GstStateChangeReturn gst_bin_get_state_func (GstElement * element,
     GstState * state, GstState * pending, GstClockTime timeout);
 static void bin_handle_async_done (GstBin * bin, GstStateChangeReturn ret,
     gboolean flag_pending, GstClockTime running_time);
 static void bin_handle_async_start (GstBin * bin);
-static void bin_push_state_continue (BinContinueData * data);
+static void bin_push_state_continue (GstBin * bin, BinContinueData * data);
 static void bin_do_eos (GstBin * bin);
 
 static gboolean gst_bin_add_func (GstBin * bin, GstElement * element);
 static gboolean gst_bin_remove_func (GstBin * bin, GstElement * element);
+static void gst_bin_deep_element_added_func (GstBin * bin, GstBin * sub_bin,
+    GstElement * element);
+static void gst_bin_deep_element_removed_func (GstBin * bin, GstBin * sub_bin,
+    GstElement * element);
+static void gst_bin_update_context (GstBin * bin, GstContext * context);
+static void gst_bin_update_context_unlocked (GstBin * bin,
+    GstContext * context);
 
 #if 0
 static void gst_bin_set_index_func (GstElement * element, GstIndex * index);
@@ -242,12 +247,13 @@ static gboolean gst_bin_send_event (GstElement * element, GstEvent * event);
 static GstBusSyncReply bin_bus_handler (GstBus * bus,
     GstMessage * message, GstBin * bin);
 static gboolean gst_bin_query (GstElement * element, GstQuery * query);
+static void gst_bin_set_context (GstElement * element, GstContext * context);
 
 static gboolean gst_bin_do_latency_func (GstBin * bin);
 
 static void bin_remove_messages (GstBin * bin, GstObject * src,
     GstMessageType types);
-static void gst_bin_continue_func (BinContinueData * data);
+static void gst_bin_continue_func (GstBin * bin, BinContinueData * data);
 static gint bin_element_is_sink (GstElement * child, GstBin * bin);
 static gint bin_element_is_src (GstElement * child, GstBin * bin);
 
@@ -259,6 +265,8 @@ enum
   ELEMENT_ADDED,
   ELEMENT_REMOVED,
   DO_LATENCY,
+  DEEP_ELEMENT_ADDED,
+  DEEP_ELEMENT_REMOVED,
   LAST_SIGNAL
 };
 
@@ -356,7 +364,6 @@ gst_bin_class_init (GstBinClass * klass)
 {
   GObjectClass *gobject_class;
   GstElementClass *gstelement_class;
-  GError *err;
 
   gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
@@ -369,7 +376,7 @@ gst_bin_class_init (GstBinClass * klass)
   /**
    * GstBin:async-handling:
    *
-   * If set to #TRUE, the bin will handle asynchronous state changes.
+   * If set to %TRUE, the bin will handle asynchronous state changes.
    * This should be used only if the bin subclass is modifying the state
    * of its children on its own.
    */
@@ -401,11 +408,41 @@ gst_bin_class_init (GstBinClass * klass)
       G_SIGNAL_RUN_FIRST, G_STRUCT_OFFSET (GstBinClass, element_removed), NULL,
       NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1, GST_TYPE_ELEMENT);
   /**
+   * GstBin::deep-element-added:
+   * @bin: the #GstBin
+   * @sub_bin: the #GstBin the element was added to
+   * @element: the #GstElement that was added to @sub_bin
+   *
+   * Will be emitted after the element was added to sub_bin.
+   *
+   * Since: 1.10
+   */
+  gst_bin_signals[DEEP_ELEMENT_ADDED] =
+      g_signal_new ("deep-element-added", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_FIRST, G_STRUCT_OFFSET (GstBinClass, deep_element_added),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 2, GST_TYPE_BIN,
+      GST_TYPE_ELEMENT);
+  /**
+   * GstBin::deep-element-removed:
+   * @bin: the #GstBin
+   * @sub_bin: the #GstBin the element was removed from
+   * @element: the #GstElement that was removed from @sub_bin
+   *
+   * Will be emitted after the element was removed from sub_bin.
+   *
+   * Since: 1.10
+   */
+  gst_bin_signals[DEEP_ELEMENT_REMOVED] =
+      g_signal_new ("deep-element-removed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_FIRST, G_STRUCT_OFFSET (GstBinClass, deep_element_removed),
+      NULL, NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 2, GST_TYPE_BIN,
+      GST_TYPE_ELEMENT);
+  /**
    * GstBin::do-latency:
    * @bin: the #GstBin
    *
    * Will be emitted when the bin needs to perform latency calculations. This
-   * signal is only emited for toplevel bins or when async-handling is
+   * signal is only emitted for toplevel bins or when async-handling is
    * enabled.
    *
    * Only one signal handler is invoked. If no signals are connected, the
@@ -449,7 +486,7 @@ gst_bin_class_init (GstBinClass * klass)
 
   gstelement_class->change_state =
       GST_DEBUG_FUNCPTR (gst_bin_change_state_func);
-  gstelement_class->state_changed = GST_DEBUG_FUNCPTR (gst_bin_state_changed);
+  gstelement_class->post_message = GST_DEBUG_FUNCPTR (gst_bin_post_message);
   gstelement_class->get_state = GST_DEBUG_FUNCPTR (gst_bin_get_state_func);
 #if 0
   gstelement_class->get_index = GST_DEBUG_FUNCPTR (gst_bin_get_index_func);
@@ -461,20 +498,16 @@ gst_bin_class_init (GstBinClass * klass)
 
   gstelement_class->send_event = GST_DEBUG_FUNCPTR (gst_bin_send_event);
   gstelement_class->query = GST_DEBUG_FUNCPTR (gst_bin_query);
+  gstelement_class->set_context = GST_DEBUG_FUNCPTR (gst_bin_set_context);
 
   klass->add_element = GST_DEBUG_FUNCPTR (gst_bin_add_func);
   klass->remove_element = GST_DEBUG_FUNCPTR (gst_bin_remove_func);
   klass->handle_message = GST_DEBUG_FUNCPTR (gst_bin_handle_message_func);
 
-  klass->do_latency = GST_DEBUG_FUNCPTR (gst_bin_do_latency_func);
+  klass->deep_element_added = gst_bin_deep_element_added_func;
+  klass->deep_element_removed = gst_bin_deep_element_removed_func;
 
-  GST_DEBUG ("creating bin thread pool");
-  err = NULL;
-  klass->pool =
-      g_thread_pool_new ((GFunc) gst_bin_continue_func, NULL, -1, FALSE, &err);
-  if (err != NULL) {
-    g_critical ("could alloc threadpool %s", err->message);
-  }
+  klass->do_latency = GST_DEBUG_FUNCPTR (gst_bin_do_latency_func);
 }
 
 static void
@@ -511,7 +544,7 @@ gst_bin_dispose (GObject * object)
   GstClock **provided_clock_p = &bin->provided_clock;
   GstElement **clock_provider_p = &bin->clock_provider;
 
-  GST_CAT_DEBUG_OBJECT (GST_CAT_REFCOUNTING, object, "dispose");
+  GST_CAT_DEBUG_OBJECT (GST_CAT_REFCOUNTING, object, "%p dispose", object);
 
   GST_OBJECT_LOCK (object);
   gst_object_replace ((GstObject **) child_bus_p, NULL);
@@ -533,7 +566,7 @@ gst_bin_dispose (GObject * object)
 
 /**
  * gst_bin_new:
- * @name: the name of the new bin
+ * @name: (allow-none): the name of the new bin
  *
  * Creates a new bin with the given name.
  *
@@ -882,8 +915,8 @@ find_message (GstBin * bin, GstObject * src, GstMessageType types)
       guint i;
 
       for (i = 0; i < 32; i++)
-        if (types & (1 << i))
-          GST_DEBUG_OBJECT (bin, "  %s", gst_message_type_get_name (1 << i));
+        if (types & (1U << i))
+          GST_DEBUG_OBJECT (bin, "  %s", gst_message_type_get_name (1U << i));
     }
 #endif
   }
@@ -951,7 +984,8 @@ bin_remove_messages (GstBin * bin, GstObject * src, GstMessageType types)
 
     if (message_check (message, &find) == 0) {
       GST_DEBUG_OBJECT (GST_MESSAGE_SRC (message),
-          "deleting message %p of types 0x%08x", message, types);
+          "deleting message %p of type %s (types 0x%08x)", message,
+          GST_MESSAGE_TYPE_NAME (message), types);
       bin->messages = g_list_delete_link (bin->messages, walk);
       gst_message_unref (message);
     } else {
@@ -1009,12 +1043,16 @@ is_eos (GstBin * bin, guint32 * seqnum)
  *
  * call with bin LOCK */
 static gboolean
-is_stream_start (GstBin * bin, guint32 * seqnum)
+is_stream_start (GstBin * bin, guint32 * seqnum, gboolean * have_group_id,
+    guint * group_id)
 {
   gboolean result;
-  gint n_stream_start = 0;
   GList *walk, *msgs;
+  guint tmp_group_id;
+  gboolean first = TRUE, same_group_id = TRUE;
 
+  *have_group_id = TRUE;
+  *group_id = 0;
   result = TRUE;
   for (walk = bin->children; walk; walk = g_list_next (walk)) {
     GstElement *element;
@@ -1027,7 +1065,18 @@ is_stream_start (GstBin * bin, guint32 * seqnum)
                   GST_MESSAGE_STREAM_START))) {
         GST_DEBUG ("sink '%s' posted STREAM_START", GST_ELEMENT_NAME (element));
         *seqnum = gst_message_get_seqnum (GST_MESSAGE_CAST (msgs->data));
-        n_stream_start++;
+        if (gst_message_parse_group_id (GST_MESSAGE_CAST (msgs->data),
+                &tmp_group_id)) {
+          if (first) {
+            first = FALSE;
+            *group_id = tmp_group_id;
+          } else {
+            if (tmp_group_id != *group_id)
+              same_group_id = FALSE;
+          }
+        } else {
+          *have_group_id = FALSE;
+        }
       } else {
         GST_DEBUG ("sink '%s' did not post STREAM_START yet",
             GST_ELEMENT_NAME (element));
@@ -1037,6 +1086,14 @@ is_stream_start (GstBin * bin, guint32 * seqnum)
     }
   }
 
+  /* If all have a group_id we only consider this stream started
+   * if all group ids were the same and all sinks posted a stream-start
+   * message */
+  if (*have_group_id)
+    return same_group_id && result;
+  /* otherwise consider this stream started after all sinks
+   * have reported stream-start for backward compatibility.
+   * FIXME 2.0: This should go away! */
   return result;
 }
 
@@ -1057,6 +1114,55 @@ unlink_pads (const GValue * item, gpointer user_data)
   }
 }
 
+static void
+bin_deep_iterator_foreach (const GValue * item, gpointer user_data)
+{
+  GQueue *queue = user_data;
+
+  g_queue_push_tail (queue, g_value_dup_object (item));
+}
+
+static void
+gst_bin_do_deep_add_remove (GstBin * bin, gint sig_id, const gchar * sig_name,
+    GstElement * element)
+{
+  g_signal_emit (bin, sig_id, 0, bin, element);
+
+  /* When removing a bin, emit deep-element-* for everything in the bin too */
+  if (GST_IS_BIN (element)) {
+    GstIterator *it;
+    GstIteratorResult ires;
+    GQueue elements = G_QUEUE_INIT;
+
+    GST_LOG_OBJECT (bin, "Recursing into bin %" GST_PTR_FORMAT " for %s",
+        element, sig_name);
+    it = gst_bin_iterate_recurse (GST_BIN_CAST (element));
+    do {
+      ires = gst_iterator_foreach (it, bin_deep_iterator_foreach, &elements);
+      if (ires != GST_ITERATOR_DONE) {
+        g_queue_foreach (&elements, (GFunc) g_object_unref, NULL);
+        g_queue_clear (&elements);
+      }
+      if (ires == GST_ITERATOR_RESYNC)
+        gst_iterator_resync (it);
+    } while (ires == GST_ITERATOR_RESYNC);
+    if (ires != GST_ITERATOR_ERROR) {
+      GstElement *e;
+
+      while ((e = g_queue_pop_head (&elements))) {
+        GstObject *parent = gst_object_get_parent (GST_OBJECT_CAST (e));
+
+        GST_LOG_OBJECT (bin, "calling %s for element %" GST_PTR_FORMAT
+            " in bin %" GST_PTR_FORMAT, sig_name, e, parent);
+        g_signal_emit (bin, sig_id, 0, parent, e);
+        gst_object_unref (parent);
+        g_object_unref (e);
+      }
+    }
+    gst_iterator_free (it);
+  }
+}
+
 /* vmethod that adds an element to a bin
  *
  * MT safe
@@ -1069,11 +1175,12 @@ gst_bin_add_func (GstBin * bin, GstElement * element)
   gboolean is_sink, is_source, provides_clock, requires_clock;
   GstMessage *clock_message = NULL, *async_message = NULL;
   GstStateChangeReturn ret;
+  GList *l, *elem_contexts, *need_context_messages;
 
   GST_DEBUG_OBJECT (bin, "element :%s", GST_ELEMENT_NAME (element));
 
   /* we obviously can't add ourself to ourself */
-  if (G_UNLIKELY (GST_ELEMENT_CAST (element) == GST_ELEMENT_CAST (bin)))
+  if (G_UNLIKELY (element == GST_ELEMENT_CAST (bin)))
     goto adding_itself;
 
   /* get the element name to make sure it is unique in this bin. */
@@ -1102,23 +1209,25 @@ gst_bin_add_func (GstBin * bin, GstElement * element)
     goto had_parent;
 
   /* if we add a sink we become a sink */
-  if (is_sink) {
+  if (is_sink && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_SINK)) {
     GST_CAT_DEBUG_OBJECT (GST_CAT_PARENTAGE, bin, "element \"%s\" was sink",
         elem_name);
     GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_FLAG_SINK);
   }
-  if (is_source) {
+  if (is_source && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_SOURCE)) {
     GST_CAT_DEBUG_OBJECT (GST_CAT_PARENTAGE, bin, "element \"%s\" was source",
         elem_name);
     GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_FLAG_SOURCE);
   }
-  if (provides_clock) {
+  if (provides_clock
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_PROVIDE_CLOCK)) {
     GST_DEBUG_OBJECT (bin, "element \"%s\" can provide a clock", elem_name);
     clock_message =
         gst_message_new_clock_provide (GST_OBJECT_CAST (element), NULL, TRUE);
     GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
   }
-  if (requires_clock) {
+  if (requires_clock
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_REQUIRE_CLOCK)) {
     GST_DEBUG_OBJECT (bin, "element \"%s\" requires a clock", elem_name);
     GST_OBJECT_FLAG_SET (bin, GST_ELEMENT_FLAG_REQUIRE_CLOCK);
   }
@@ -1139,6 +1248,36 @@ gst_bin_add_func (GstBin * bin, GstElement * element)
    * that is not important right now. When the pipeline goes to PLAYING,
    * a new clock will be selected */
   gst_element_set_clock (element, GST_ELEMENT_CLOCK (bin));
+
+  /* get the element's list of contexts before propagating our own */
+  elem_contexts = gst_element_get_contexts (element);
+  for (l = GST_ELEMENT_CAST (bin)->contexts; l; l = l->next)
+    gst_element_set_context (element, l->data);
+
+  need_context_messages = NULL;
+  for (l = elem_contexts; l; l = l->next) {
+    GstContext *replacement, *context = l->data;
+    const gchar *context_type;
+
+    context_type = gst_context_get_context_type (context);
+
+    /* we already set this context above? */
+    replacement =
+        gst_element_get_context_unlocked (GST_ELEMENT (bin), context_type);
+    if (replacement) {
+      gst_context_unref (replacement);
+    } else {
+      GstMessage *msg;
+      GstStructure *s;
+
+      /* ask our parent for the context */
+      msg = gst_message_new_need_context (GST_OBJECT_CAST (bin), context_type);
+      s = (GstStructure *) gst_message_get_structure (msg);
+      gst_structure_set (s, "bin.old.context", GST_TYPE_CONTEXT, context, NULL);
+
+      need_context_messages = g_list_prepend (need_context_messages, msg);
+    }
+  }
 
 #if 0
   /* set the cached index on the children */
@@ -1178,17 +1317,62 @@ gst_bin_add_func (GstBin * bin, GstElement * element)
 no_state_recalc:
   GST_OBJECT_UNLOCK (bin);
 
+  for (l = need_context_messages; l; l = l->next) {
+    GstMessage *msg = l->data;
+    GstStructure *s;
+    const gchar *context_type;
+    GstContext *replacement, *context;
+
+    gst_message_parse_context_type (msg, &context_type);
+
+    GST_LOG_OBJECT (bin, "asking parent for context type: %s "
+        "from %" GST_PTR_FORMAT, context_type, element);
+
+    s = (GstStructure *) gst_message_get_structure (msg);
+    gst_structure_get (s, "bin.old.context", GST_TYPE_CONTEXT, &context, NULL);
+    gst_structure_remove_field (s, "bin.old.context");
+    gst_element_post_message (GST_ELEMENT_CAST (bin), msg);
+
+    /* lock to avoid losing a potential write */
+    GST_OBJECT_LOCK (bin);
+    replacement =
+        gst_element_get_context_unlocked (GST_ELEMENT_CAST (bin), context_type);
+
+    if (replacement) {
+      /* we got the context set from GstElement::set_context */
+      gst_context_unref (replacement);
+      GST_OBJECT_UNLOCK (bin);
+    } else {
+      /* Propagate the element's context upwards */
+      GST_LOG_OBJECT (bin, "propagating existing context type: %s %p "
+          "from %" GST_PTR_FORMAT, context_type, context, element);
+
+      gst_bin_update_context_unlocked (bin, context);
+
+      msg =
+          gst_message_new_have_context (GST_OBJECT_CAST (bin),
+          gst_context_ref (context));
+      GST_OBJECT_UNLOCK (bin);
+      gst_element_post_message (GST_ELEMENT_CAST (bin), msg);
+    }
+    gst_context_unref (context);
+  }
+  g_list_free_full (elem_contexts, (GDestroyNotify) gst_context_unref);
+  g_list_free (need_context_messages);
+
   /* post the messages on the bus of the element so that the bin can handle
    * them */
   if (clock_message)
-    gst_element_post_message (GST_ELEMENT_CAST (element), clock_message);
+    gst_element_post_message (element, clock_message);
 
   if (async_message)
-    gst_element_post_message (GST_ELEMENT_CAST (element), async_message);
+    gst_element_post_message (element, async_message);
 
   /* unlink all linked pads */
   it = gst_element_iterate_pads (element);
-  gst_iterator_foreach (it, (GstIteratorForeachFunction) unlink_pads, NULL);
+  while (gst_iterator_foreach (it, (GstIteratorForeachFunction) unlink_pads,
+          NULL) == GST_ITERATOR_RESYNC)
+    gst_iterator_resync (it);
   gst_iterator_free (it);
 
   GST_CAT_DEBUG_OBJECT (GST_CAT_PARENTAGE, bin, "added element \"%s\"",
@@ -1197,6 +1381,9 @@ no_state_recalc:
   g_signal_emit (bin, gst_bin_signals[ELEMENT_ADDED], 0, element);
   gst_child_proxy_child_added ((GstChildProxy *) bin, (GObject *) element,
       elem_name);
+
+  gst_bin_do_deep_add_remove (bin, gst_bin_signals[DEEP_ELEMENT_ADDED],
+      "deep-element-added", element);
 
   g_free (elem_name);
 
@@ -1228,6 +1415,105 @@ had_parent:
 }
 
 /**
+ * gst_bin_set_suppressed_flags:
+ * @bin: a #GstBin
+ * @flags: the #GstElementFlags to suppress
+ *
+ * Suppress the given flags on the bin. #GstElementFlags of a
+ * child element are propagated when it is added to the bin.
+ * When suppressed flags are set, those specified flags will
+ * not be propagated to the bin.
+ *
+ * MT safe.
+ *
+ * Since: 1.10
+ */
+void
+gst_bin_set_suppressed_flags (GstBin * bin, GstElementFlags flags)
+{
+  g_return_if_fail (GST_IS_BIN (bin));
+
+  GST_OBJECT_LOCK (bin);
+  bin->priv->suppressed_flags = bin->priv->suppressed_flags | flags;
+  GST_OBJECT_UNLOCK (bin);
+
+  GST_DEBUG_OBJECT (bin, "Set suppressed flags(0x%x) to bin '%s'", flags,
+      GST_ELEMENT_NAME (bin));
+}
+
+/**
+ * gst_bin_get_suppressed_flags:
+ * @bin: a #GstBin
+ *
+ * Return the suppressed flags of the bin.
+ *
+ * MT safe.
+ *
+ * Returns: the bin's suppressed #GstElementFlags.
+ *
+ * Since: 1.10
+ */
+GstElementFlags
+gst_bin_get_suppressed_flags (GstBin * bin)
+{
+  GstElementFlags res;
+
+  g_return_val_if_fail (GST_IS_BIN (bin), 0);
+
+  GST_OBJECT_LOCK (bin);
+  res = bin->priv->suppressed_flags;
+  GST_OBJECT_UNLOCK (bin);
+
+  return res;
+}
+
+/* signal vfunc, will be called when a new element was added */
+static void
+gst_bin_deep_element_added_func (GstBin * bin, GstBin * sub_bin,
+    GstElement * child)
+{
+  GstBin *parent_bin;
+
+  parent_bin = (GstBin *) gst_object_get_parent (GST_OBJECT_CAST (bin));
+  if (parent_bin == NULL) {
+    GST_LOG_OBJECT (bin, "no parent, reached top-level");
+    return;
+  }
+
+  GST_LOG_OBJECT (parent_bin, "emitting deep-element-added for element "
+      "%" GST_PTR_FORMAT " which has just been added to %" GST_PTR_FORMAT,
+      sub_bin, child);
+
+  g_signal_emit (parent_bin, gst_bin_signals[DEEP_ELEMENT_ADDED], 0, sub_bin,
+      child);
+
+  gst_object_unref (parent_bin);
+}
+
+/* signal vfunc, will be called when an element was removed */
+static void
+gst_bin_deep_element_removed_func (GstBin * bin, GstBin * sub_bin,
+    GstElement * child)
+{
+  GstBin *parent_bin;
+
+  parent_bin = (GstBin *) gst_object_get_parent (GST_OBJECT_CAST (bin));
+  if (parent_bin == NULL) {
+    GST_LOG_OBJECT (bin, "no parent, reached top-level");
+    return;
+  }
+
+  GST_LOG_OBJECT (parent_bin, "emitting deep-element-removed for element "
+      "%" GST_PTR_FORMAT " which has just been removed from %" GST_PTR_FORMAT,
+      sub_bin, child);
+
+  g_signal_emit (parent_bin, gst_bin_signals[DEEP_ELEMENT_REMOVED], 0, sub_bin,
+      child);
+
+  gst_object_unref (parent_bin);
+}
+
+/**
  * gst_bin_add:
  * @bin: a #GstBin
  * @element: (transfer full): the #GstElement to add
@@ -1248,7 +1534,7 @@ had_parent:
  *
  * MT safe.
  *
- * Returns: TRUE if the element could be added, FALSE if
+ * Returns: %TRUE if the element could be added, %FALSE if
  * the bin does not want to accept the element.
  */
 gboolean
@@ -1259,6 +1545,7 @@ gst_bin_add (GstBin * bin, GstElement * element)
 
   g_return_val_if_fail (GST_IS_BIN (bin), FALSE);
   g_return_val_if_fail (GST_IS_ELEMENT (element), FALSE);
+  g_return_val_if_fail (GST_ELEMENT_CAST (bin) != element, FALSE);
 
   bclass = GST_BIN_GET_CLASS (bin);
 
@@ -1269,7 +1556,9 @@ gst_bin_add (GstBin * bin, GstElement * element)
       GST_STR_NULL (GST_ELEMENT_NAME (element)),
       GST_STR_NULL (GST_ELEMENT_NAME (bin)));
 
+  GST_TRACER_BIN_ADD_PRE (bin, element);
   result = bclass->add_element (bin, element);
+  GST_TRACER_BIN_ADD_POST (bin, element, result);
 
   return result;
 
@@ -1301,6 +1590,10 @@ gst_bin_remove_func (GstBin * bin, GstElement * element)
   GstStateChangeReturn ret;
 
   GST_DEBUG_OBJECT (bin, "element :%s", GST_ELEMENT_NAME (element));
+
+  /* we obviously can't remove ourself from ourself */
+  if (G_UNLIKELY (element == GST_ELEMENT_CAST (bin)))
+    goto removing_itself;
 
   GST_OBJECT_LOCK (bin);
 
@@ -1376,22 +1669,26 @@ gst_bin_remove_func (GstBin * bin, GstElement * element)
   if (!GST_BIN_IS_NO_RESYNC (bin))
     bin->priv->structure_cookie++;
 
-  if (is_sink && !othersink) {
+  if (is_sink && !othersink
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_SINK)) {
     /* we're not a sink anymore */
     GST_DEBUG_OBJECT (bin, "we removed the last sink");
     GST_OBJECT_FLAG_UNSET (bin, GST_ELEMENT_FLAG_SINK);
   }
-  if (is_source && !othersource) {
+  if (is_source && !othersource
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_SOURCE)) {
     /* we're not a source anymore */
     GST_DEBUG_OBJECT (bin, "we removed the last source");
     GST_OBJECT_FLAG_UNSET (bin, GST_ELEMENT_FLAG_SOURCE);
   }
-  if (provides_clock && !otherprovider) {
+  if (provides_clock && !otherprovider
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_PROVIDE_CLOCK)) {
     /* we're not a clock provider anymore */
     GST_DEBUG_OBJECT (bin, "we removed the last clock provider");
     GST_OBJECT_FLAG_UNSET (bin, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
   }
-  if (requires_clock && !otherrequirer) {
+  if (requires_clock && !otherrequirer
+      && !(bin->priv->suppressed_flags & GST_ELEMENT_FLAG_REQUIRE_CLOCK)) {
     /* we're not a clock requirer anymore */
     GST_DEBUG_OBJECT (bin, "we removed the last clock requirer");
     GST_OBJECT_FLAG_UNSET (bin, GST_ELEMENT_FLAG_REQUIRE_CLOCK);
@@ -1516,7 +1813,9 @@ no_state_recalc:
 
   /* unlink all linked pads */
   it = gst_element_iterate_pads (element);
-  gst_iterator_foreach (it, (GstIteratorForeachFunction) unlink_pads, NULL);
+  while (gst_iterator_foreach (it, (GstIteratorForeachFunction) unlink_pads,
+          NULL) == GST_ITERATOR_RESYNC)
+    gst_iterator_resync (it);
   gst_iterator_free (it);
 
   GST_CAT_INFO_OBJECT (GST_CAT_PARENTAGE, bin, "removed child \"%s\"",
@@ -1526,6 +1825,9 @@ no_state_recalc:
   gst_child_proxy_child_removed ((GstChildProxy *) bin, (GObject *) element,
       elem_name);
 
+  gst_bin_do_deep_add_remove (bin, gst_bin_signals[DEEP_ELEMENT_REMOVED],
+      "deep-element-removed", element);
+
   g_free (elem_name);
   /* element is really out of our control now */
   gst_object_unref (element);
@@ -1533,6 +1835,13 @@ no_state_recalc:
   return TRUE;
 
   /* ERROR handling */
+removing_itself:
+  {
+    GST_OBJECT_LOCK (bin);
+    g_warning ("Cannot remove bin '%s' from itself", GST_ELEMENT_NAME (bin));
+    GST_OBJECT_UNLOCK (bin);
+    return FALSE;
+  }
 not_in_bin:
   {
     g_warning ("Element '%s' is not in bin '%s'", elem_name,
@@ -1561,7 +1870,7 @@ not_in_bin:
  *
  * MT safe.
  *
- * Returns: TRUE if the element could be removed, FALSE if
+ * Returns: %TRUE if the element could be removed, %FALSE if
  * the bin does not want to remove the element.
  */
 gboolean
@@ -1572,6 +1881,7 @@ gst_bin_remove (GstBin * bin, GstElement * element)
 
   g_return_val_if_fail (GST_IS_BIN (bin), FALSE);
   g_return_val_if_fail (GST_IS_ELEMENT (element), FALSE);
+  g_return_val_if_fail (GST_ELEMENT_CAST (bin) != element, FALSE);
 
   bclass = GST_BIN_GET_CLASS (bin);
 
@@ -1581,7 +1891,9 @@ gst_bin_remove (GstBin * bin, GstElement * element)
   GST_CAT_DEBUG (GST_CAT_PARENTAGE, "removing element %s from bin %s",
       GST_ELEMENT_NAME (element), GST_ELEMENT_NAME (bin));
 
+  GST_TRACER_BIN_REMOVE_PRE (bin, element);
   result = bclass->remove_element (bin, element);
+  GST_TRACER_BIN_REMOVE_POST (bin, result);
 
   return result;
 
@@ -1602,7 +1914,8 @@ no_function:
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement,
+ * or %NULL
  */
 GstIterator *
 gst_bin_iterate_elements (GstBin * bin)
@@ -1642,7 +1955,8 @@ iterate_child_recurse (GstIterator * it, const GValue * item)
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement,
+ * or %NULL
  */
 GstIterator *
 gst_bin_iterate_recurse (GstBin * bin)
@@ -1699,7 +2013,8 @@ sink_iterator_filter (const GValue * vchild, GValue * vbin)
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement,
+ * or %NULL
  */
 GstIterator *
 gst_bin_iterate_sinks (GstBin * bin)
@@ -1759,7 +2074,8 @@ src_iterator_filter (const GValue * vchild, GValue * vbin)
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement,
+ * or %NULL
  */
 GstIterator *
 gst_bin_iterate_sources (GstBin * bin)
@@ -1825,14 +2141,24 @@ typedef struct _GstBinSortIterator
 } GstBinSortIterator;
 
 static void
+copy_to_queue (gpointer data, gpointer user_data)
+{
+  GstElement *element = data;
+  GQueue *queue = user_data;
+
+  gst_object_ref (element);
+  g_queue_push_tail (queue, element);
+}
+
+static void
 gst_bin_sort_iterator_copy (const GstBinSortIterator * it,
     GstBinSortIterator * copy)
 {
   GHashTableIter iter;
   gpointer key, value;
 
-  copy->queue = it->queue;
-  g_queue_foreach (&copy->queue, (GFunc) gst_object_ref, NULL);
+  g_queue_init (&copy->queue);
+  g_queue_foreach ((GQueue *) & it->queue, copy_to_queue, &copy->queue);
 
   copy->bin = gst_object_ref (it->bin);
   if (it->best)
@@ -2135,7 +2461,8 @@ gst_bin_sort_iterator_new (GstBin * bin)
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement,
+ * or %NULL
  */
 GstIterator *
 gst_bin_iterate_sorted (GstBin * bin)
@@ -2322,15 +2649,20 @@ was_busy:
 }
 
 /* gst_iterator_fold functions for pads_activate
- * Stop the iterator if activating one pad failed. */
+ * Stop the iterator if activating one pad failed, but only if that pad
+ * has not been removed from the element. */
 static gboolean
 activate_pads (const GValue * vpad, GValue * ret, gboolean * active)
 {
   GstPad *pad = g_value_get_object (vpad);
   gboolean cont = TRUE;
 
-  if (!(cont = gst_pad_set_active (pad, *active)))
-    g_value_set_boolean (ret, FALSE);
+  if (!gst_pad_set_active (pad, *active)) {
+    if (GST_PAD_PARENT (pad) != NULL) {
+      cont = FALSE;
+      g_value_set_boolean (ret, FALSE);
+    }
+  }
 
   return cont;
 }
@@ -2478,17 +2810,41 @@ gst_bin_do_latency_func (GstBin * bin)
   return res;
 }
 
-static void
-gst_bin_state_changed (GstElement * element, GstState oldstate,
-    GstState newstate, GstState pending)
+static gboolean
+gst_bin_post_message (GstElement * element, GstMessage * msg)
 {
   GstElementClass *pklass = (GstElementClass *) parent_class;
+  gboolean ret;
 
-  if (newstate == GST_STATE_PLAYING && pending == GST_STATE_VOID_PENDING)
-    bin_do_eos (GST_BIN_CAST (element));
+  ret = pklass->post_message (element, gst_message_ref (msg));
 
-  if (pklass->state_changed)
-    pklass->state_changed (element, oldstate, newstate, pending);
+  if (GST_MESSAGE_TYPE (msg) == GST_MESSAGE_STATE_CHANGED &&
+      GST_MESSAGE_SRC (msg) == GST_OBJECT_CAST (element)) {
+    GstState newstate, pending;
+
+    gst_message_parse_state_changed (msg, NULL, &newstate, &pending);
+    if (newstate == GST_STATE_PLAYING && pending == GST_STATE_VOID_PENDING) {
+      GST_BIN_CAST (element)->priv->posted_playing = TRUE;
+      bin_do_eos (GST_BIN_CAST (element));
+    } else {
+      GST_BIN_CAST (element)->priv->posted_playing = FALSE;
+    }
+  }
+
+  gst_message_unref (msg);
+
+  return ret;
+}
+
+static void
+reset_state (const GValue * data, gpointer user_data)
+{
+  GstElement *e = g_value_get_object (data);
+  GstState state = GPOINTER_TO_INT (user_data);
+
+  if (gst_element_set_state (e, state) == GST_STATE_CHANGE_FAILURE)
+    GST_WARNING_OBJECT (e, "Failed to switch back down to %s",
+        gst_element_state_get_name (state));
 }
 
 static GstStateChangeReturn
@@ -2517,14 +2873,18 @@ gst_bin_change_state_func (GstElement * element, GstStateChange transition)
   switch (next) {
     case GST_STATE_PLAYING:
     {
-      gboolean toplevel;
+      gboolean toplevel, asynchandling;
 
       GST_OBJECT_LOCK (bin);
       toplevel = BIN_IS_TOPLEVEL (bin);
+      asynchandling = bin->priv->asynchandling;
       GST_OBJECT_UNLOCK (bin);
 
       if (toplevel)
         gst_bin_recalculate_latency (bin);
+      if (asynchandling)
+        gst_element_post_message (element,
+            gst_message_new_latency (GST_OBJECT_CAST (element)));
       break;
     }
     case GST_STATE_PAUSED:
@@ -2546,14 +2906,21 @@ gst_bin_change_state_func (GstElement * element, GstStateChange transition)
       GST_DEBUG_OBJECT (element, "clearing all cached messages");
       bin_remove_messages (bin, NULL, GST_MESSAGE_ANY);
       GST_OBJECT_UNLOCK (bin);
-      if (current == GST_STATE_PAUSED)
-        if (!(gst_bin_src_pads_activate (bin, FALSE)))
-          goto activate_failure;
+      /* We might not have reached PAUSED yet due to async errors,
+       * make sure to always deactivate the pads nonetheless */
+      if (!(gst_bin_src_pads_activate (bin, FALSE)))
+        goto activate_failure;
       break;
     case GST_STATE_NULL:
-      if (current == GST_STATE_READY)
+      /* Clear message list on next NULL */
+      GST_OBJECT_LOCK (bin);
+      GST_DEBUG_OBJECT (element, "clearing all cached messages");
+      bin_remove_messages (bin, NULL, GST_MESSAGE_ANY);
+      GST_OBJECT_UNLOCK (bin);
+      if (current == GST_STATE_READY) {
         if (!(gst_bin_src_pads_activate (bin, FALSE)))
           goto activate_failure;
+      }
       break;
     default:
       break;
@@ -2625,7 +2992,7 @@ restart:
             if (parent == GST_OBJECT_CAST (element)) {
               /* element is still in bin, really error now */
               gst_object_unref (parent);
-              goto done;
+              goto undo;
             }
             /* child removed from bin, let the resync code redo the state
              * change */
@@ -2738,12 +3105,33 @@ activate_failure:
         "failure (de)activating src pads");
     return GST_STATE_CHANGE_FAILURE;
   }
+
+undo:
+  {
+    if (current < next) {
+      GstIterator *it = gst_bin_iterate_sorted (GST_BIN (element));
+      GstIteratorResult ret;
+
+      GST_DEBUG_OBJECT (element,
+          "Bin failed to change state, switching children back to %s",
+          gst_element_state_get_name (current));
+      while (TRUE) {
+        ret =
+            gst_iterator_foreach (it, &reset_state, GINT_TO_POINTER (current));
+        if (ret != GST_ITERATOR_RESYNC)
+          break;
+        gst_iterator_resync (it);
+      }
+      gst_iterator_free (it);
+    }
+    goto done;
+  }
 }
 
 /*
  * This function is a utility event handler for seek events.
- * It will send the event to all sinks or sources depending on the
- * event-direction.
+ * It will send the event to all sinks or sources and appropriate
+ * ghost pads depending on the event-direction.
  *
  * Applications are free to override this behaviour and
  * implement their own seek handler, but this will work for
@@ -2772,7 +3160,7 @@ gst_bin_send_event (GstElement * element, GstEvent * event)
     switch (gst_iterator_next (iter, &data)) {
       case GST_ITERATOR_OK:
       {
-        GstElement *child = g_value_get_object (&data);;
+        GstElement *child = g_value_get_object (&data);
 
         gst_event_ref (event);
         res &= gst_element_send_event (child, event);
@@ -2797,6 +3185,45 @@ gst_bin_send_event (GstElement * element, GstEvent * event)
   }
   g_value_unset (&data);
   gst_iterator_free (iter);
+
+  if (GST_EVENT_IS_DOWNSTREAM (event)) {
+    iter = gst_element_iterate_sink_pads (GST_ELEMENT (bin));
+    GST_DEBUG_OBJECT (bin, "Sending %s event to sink pads",
+        GST_EVENT_TYPE_NAME (event));
+  } else {
+    iter = gst_element_iterate_src_pads (GST_ELEMENT (bin));
+    GST_DEBUG_OBJECT (bin, "Sending %s event to src pads",
+        GST_EVENT_TYPE_NAME (event));
+  }
+
+  done = FALSE;
+  while (!done) {
+    switch (gst_iterator_next (iter, &data)) {
+      case GST_ITERATOR_OK:
+      {
+        GstPad *pad = g_value_get_object (&data);
+
+        gst_event_ref (event);
+        res &= gst_pad_send_event (pad, event);
+        GST_LOG_OBJECT (pad, "After handling %s event: %d",
+            GST_EVENT_TYPE_NAME (event), res);
+        break;
+      }
+      case GST_ITERATOR_RESYNC:
+        gst_iterator_resync (iter);
+        res = TRUE;
+        break;
+      case GST_ITERATOR_DONE:
+        done = TRUE;
+        break;
+      case GST_ITERATOR_ERROR:
+        g_assert_not_reached ();
+        break;
+    }
+  }
+
+  g_value_unset (&data);
+  gst_iterator_free (iter);
   gst_event_unref (event);
 
   return res;
@@ -2806,13 +3233,11 @@ gst_bin_send_event (GstElement * element, GstEvent * event)
  * their state, this function will attempt to bring the bin to the next state.
  */
 static void
-gst_bin_continue_func (BinContinueData * data)
+gst_bin_continue_func (GstBin * bin, BinContinueData * data)
 {
-  GstBin *bin;
   GstState current, next, pending;
   GstStateChange transition;
 
-  bin = data->bin;
   pending = data->pending;
 
   GST_DEBUG_OBJECT (bin, "waiting for state lock");
@@ -2846,8 +3271,6 @@ gst_bin_continue_func (BinContinueData * data)
   GST_STATE_UNLOCK (bin);
   GST_DEBUG_OBJECT (bin, "state continue done");
 
-  gst_object_unref (bin);
-  g_slice_free (BinContinueData, data);
   return;
 
 interrupted:
@@ -2855,8 +3278,6 @@ interrupted:
     GST_OBJECT_UNLOCK (bin);
     GST_STATE_UNLOCK (bin);
     GST_DEBUG_OBJECT (bin, "state continue aborted due to intervening change");
-    gst_object_unref (bin);
-    g_slice_free (BinContinueData, data);
     return;
   }
 }
@@ -2876,17 +3297,18 @@ bin_bus_handler (GstBus * bus, GstMessage * message, GstBin * bin)
 }
 
 static void
-bin_push_state_continue (BinContinueData * data)
+free_bin_continue_data (BinContinueData * data)
 {
-  GstBinClass *klass;
-  GstBin *bin;
+  g_slice_free (BinContinueData, data);
+}
 
-  /* ref was taken */
-  bin = data->bin;
-  klass = GST_BIN_GET_CLASS (bin);
-
+static void
+bin_push_state_continue (GstBin * bin, BinContinueData * data)
+{
   GST_DEBUG_OBJECT (bin, "pushing continue on thread pool");
-  g_thread_pool_push (klass->pool, data, NULL);
+  gst_element_call_async (GST_ELEMENT_CAST (bin),
+      (GstElementCallAsyncFunc) gst_bin_continue_func, data,
+      (GDestroyNotify) free_bin_continue_data);
 }
 
 /* an element started an async state change, if we were not busy with a state
@@ -3049,8 +3471,6 @@ bin_handle_async_done (GstBin * bin, GstStateChangeReturn ret,
 
     cont = g_slice_new (BinContinueData);
 
-    /* ref to the bin */
-    cont->bin = gst_object_ref (bin);
     /* cookie to detect concurrent state change */
     cont->cookie = GST_ELEMENT_CAST (bin)->state_cookie;
     /* pending target state */
@@ -3081,7 +3501,7 @@ bin_handle_async_done (GstBin * bin, GstStateChangeReturn ret,
   if (cont) {
     /* toplevel, start continue state */
     GST_DEBUG_OBJECT (bin, "all async-done, starting state continue");
-    bin_push_state_continue (cont);
+    bin_push_state_continue (bin, cont);
   } else {
     GST_DEBUG_OBJECT (bin, "state change complete");
     GST_STATE_BROADCAST (bin);
@@ -3117,11 +3537,13 @@ bin_do_eos (GstBin * bin)
 
   GST_OBJECT_LOCK (bin);
   /* If all sinks are EOS, we're in PLAYING and no state change is pending
-   * we forward the EOS message to the parent bin or application
+   * (or we're doing playing to playing and noone else will trigger posting
+   * EOS for us) we forward the EOS message to the parent bin or application
    */
   eos = GST_STATE (bin) == GST_STATE_PLAYING
-      && GST_STATE_PENDING (bin) == GST_STATE_VOID_PENDING
-      && is_eos (bin, &seqnum);
+      && (GST_STATE_PENDING (bin) == GST_STATE_VOID_PENDING ||
+      GST_STATE_PENDING (bin) == GST_STATE_PLAYING)
+      && bin->priv->posted_playing && is_eos (bin, &seqnum);
   GST_OBJECT_UNLOCK (bin);
 
   if (eos
@@ -3143,6 +3565,9 @@ bin_do_eos (GstBin * bin)
     GST_DEBUG_OBJECT (bin,
         "all sinks posted EOS, posting seqnum #%" G_GUINT32_FORMAT, seqnum);
     gst_element_post_message (GST_ELEMENT_CAST (bin), tmessage);
+  } else {
+    GST_LOG_OBJECT (bin, "Not forwarding EOS due to in progress state change, "
+        " or already posted, or waiting for more EOS");
   }
 }
 
@@ -3151,12 +3576,14 @@ bin_do_stream_start (GstBin * bin)
 {
   guint32 seqnum = 0;
   gboolean stream_start;
+  gboolean have_group_id = FALSE;
+  guint group_id = 0;
 
   GST_OBJECT_LOCK (bin);
   /* If all sinks are STREAM_START we forward the STREAM_START message
    * to the parent bin or application
    */
-  stream_start = is_stream_start (bin, &seqnum);
+  stream_start = is_stream_start (bin, &seqnum, &have_group_id, &group_id);
   GST_OBJECT_UNLOCK (bin);
 
   if (stream_start) {
@@ -3168,6 +3595,9 @@ bin_do_stream_start (GstBin * bin)
 
     tmessage = gst_message_new_stream_start (GST_OBJECT_CAST (bin));
     gst_message_set_seqnum (tmessage, seqnum);
+    if (have_group_id)
+      gst_message_set_group_id (tmessage, group_id);
+
     GST_DEBUG_OBJECT (bin,
         "all sinks posted STREAM_START, posting seqnum #%" G_GUINT32_FORMAT,
         seqnum);
@@ -3175,8 +3605,7 @@ bin_do_stream_start (GstBin * bin)
   }
 }
 
-/* must be called with the object lock. This function releases the lock to post
- * the message. */
+/* must be called without the object lock as it posts messages */
 static void
 bin_do_message_forward (GstBin * bin, GstMessage * message)
 {
@@ -3185,7 +3614,6 @@ bin_do_message_forward (GstBin * bin, GstMessage * message)
 
     GST_DEBUG_OBJECT (bin, "pass %s message upward",
         GST_MESSAGE_TYPE_NAME (message));
-    GST_OBJECT_UNLOCK (bin);
 
     /* we need to convert these messages to element messages so that our parent
      * bin can easily ignore them and so that the application can easily
@@ -3195,8 +3623,44 @@ bin_do_message_forward (GstBin * bin, GstMessage * message)
             "message", GST_TYPE_MESSAGE, message, NULL));
 
     gst_element_post_message (GST_ELEMENT_CAST (bin), forwarded);
+  }
+}
 
-    GST_OBJECT_LOCK (bin);
+static void
+gst_bin_update_context (GstBin * bin, GstContext * context)
+{
+  GST_OBJECT_LOCK (bin);
+  gst_bin_update_context_unlocked (bin, context);
+  GST_OBJECT_UNLOCK (bin);
+}
+
+static void
+gst_bin_update_context_unlocked (GstBin * bin, GstContext * context)
+{
+  const gchar *context_type;
+  GList *l, **contexts;
+
+  contexts = &GST_ELEMENT_CAST (bin)->contexts;
+  context_type = gst_context_get_context_type (context);
+
+  GST_DEBUG_OBJECT (bin, "set context %p %" GST_PTR_FORMAT, context,
+      gst_context_get_structure (context));
+  for (l = *contexts; l; l = l->next) {
+    GstContext *tmp = l->data;
+    const gchar *tmp_type = gst_context_get_context_type (tmp);
+
+    /* Always store newest context but never replace
+     * a persistent one by a non-persistent one */
+    if (strcmp (context_type, tmp_type) == 0 &&
+        (gst_context_is_persistent (context) ||
+            !gst_context_is_persistent (tmp))) {
+      gst_context_replace ((GstContext **) & l->data, context);
+      break;
+    }
+  }
+  /* Not found? Add */
+  if (l == NULL) {
+    *contexts = g_list_prepend (*contexts, gst_context_ref (context));
   }
 }
 
@@ -3223,8 +3687,8 @@ bin_do_message_forward (GstBin * bin, GstMessage * message)
  *     result so we can answer it quicker the next time. Any element that
  *     changes its duration marks our cached values invalid.
  *     This message is also posted upwards. This is currently disabled
- *     because too many elements don't post DURATION messages when the
- *     duration changes.
+ *     because too many elements don't post DURATION_CHANGED messages when
+ *     the duration changes.
  *
  * GST_MESSAGE_CLOCK_LOST: This message is posted by an element when it
  *     can no longer provide a clock. The default bin behaviour is to
@@ -3285,8 +3749,8 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
     {
 
       /* collect all eos messages from the children */
-      GST_OBJECT_LOCK (bin);
       bin_do_message_forward (bin, message);
+      GST_OBJECT_LOCK (bin);
       /* ref message for future use  */
       bin_replace_message (bin, message, GST_MESSAGE_EOS);
       GST_OBJECT_UNLOCK (bin);
@@ -3322,8 +3786,9 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
       gst_message_parse_segment_start (message, &format, &position);
       seqnum = gst_message_get_seqnum (message);
 
-      GST_OBJECT_LOCK (bin);
       bin_do_message_forward (bin, message);
+
+      GST_OBJECT_LOCK (bin);
       /* if this is the first segment-start, post to parent but not to the
        * application */
       if (!find_message (bin, NULL, GST_MESSAGE_SEGMENT_START) &&
@@ -3355,8 +3820,9 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
       gst_message_parse_segment_done (message, &format, &position);
       seqnum = gst_message_get_seqnum (message);
 
-      GST_OBJECT_LOCK (bin);
       bin_do_message_forward (bin, message);
+
+      GST_OBJECT_LOCK (bin);
       bin_replace_message (bin, message, GST_MESSAGE_SEGMENT_START);
       /* if there are no more segment_start messages, everybody posted
        * a segment_done and we can post one on the bus. */
@@ -3387,7 +3853,7 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
        * for duration, we will recalculate. */
 #if 0
       GST_OBJECT_LOCK (bin);
-      bin_remove_messages (bin, NULL, GST_MESSAGE_DURATION);
+      bin_remove_messages (bin, NULL, GST_MESSAGE_DURATION_CHANGED);
       GST_OBJECT_UNLOCK (bin);
 #endif
       goto forward;
@@ -3396,7 +3862,7 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
     {
       GstClock **provided_clock_p;
       GstElement **clock_provider_p;
-      gboolean playing, provided, forward;
+      gboolean playing, toplevel, provided, forward;
       GstClock *clock;
 
       gst_message_parse_clock_lost (message, &clock);
@@ -3404,10 +3870,14 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
       GST_OBJECT_LOCK (bin);
       bin->clock_dirty = TRUE;
       /* if we lost the clock that we provided, post to parent but
-       * only if we are PLAYING. */
+       * only if we are not a top-level bin or PLAYING.
+       * The reason for this is that applications should be able
+       * to PAUSE/PLAY if they receive this message without worrying
+       * about the state of the pipeline. */
       provided = (clock == bin->provided_clock);
       playing = (GST_STATE (bin) == GST_STATE_PLAYING);
-      forward = playing & provided;
+      toplevel = GST_OBJECT_PARENT (bin) == NULL;
+      forward = provided && (playing || !toplevel);
       if (provided) {
         GST_DEBUG_OBJECT (bin,
             "Lost clock %" GST_PTR_FORMAT " provided by %" GST_PTR_FORMAT,
@@ -3453,9 +3923,9 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
       GST_DEBUG_OBJECT (bin, "ASYNC_START message %p, %s", message,
           src ? GST_OBJECT_NAME (src) : "(NULL)");
 
-      GST_OBJECT_LOCK (bin);
       bin_do_message_forward (bin, message);
 
+      GST_OBJECT_LOCK (bin);
       /* we ignore the message if we are going to <= READY */
       if ((target = GST_STATE_TARGET (bin)) <= GST_STATE_READY)
         goto ignore_start_message;
@@ -3486,9 +3956,9 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
 
       gst_message_parse_async_done (message, &running_time);
 
-      GST_OBJECT_LOCK (bin);
       bin_do_message_forward (bin, message);
 
+      GST_OBJECT_LOCK (bin);
       /* ignore messages if we are shutting down */
       if ((target = GST_STATE_TARGET (bin)) <= GST_STATE_READY)
         goto ignore_done_message;
@@ -3552,6 +4022,44 @@ gst_bin_handle_message_func (GstBin * bin, GstMessage * message)
 
       break;
     }
+    case GST_MESSAGE_NEED_CONTEXT:{
+      const gchar *context_type;
+      GList *l, *contexts;
+
+      gst_message_parse_context_type (message, &context_type);
+      GST_OBJECT_LOCK (bin);
+      contexts = GST_ELEMENT_CAST (bin)->contexts;
+      GST_LOG_OBJECT (bin, "got need-context message type: %s", context_type);
+      for (l = contexts; l; l = l->next) {
+        GstContext *tmp = l->data;
+        const gchar *tmp_type = gst_context_get_context_type (tmp);
+
+        if (strcmp (context_type, tmp_type) == 0) {
+          gst_element_set_context (GST_ELEMENT (src), l->data);
+          break;
+        }
+      }
+      GST_OBJECT_UNLOCK (bin);
+
+      /* Forward if we couldn't answer the message */
+      if (l == NULL) {
+        goto forward;
+      } else {
+        gst_message_unref (message);
+      }
+
+      break;
+    }
+    case GST_MESSAGE_HAVE_CONTEXT:{
+      GstContext *context;
+
+      gst_message_parse_have_context (message, &context);
+      gst_bin_update_context (bin, context);
+      gst_context_unref (context);
+
+      goto forward;
+      break;
+    }
     default:
       goto forward;
   }
@@ -3591,9 +4099,14 @@ bin_query_min_max_init (GstBin * bin, QueryFold * fold)
 static gboolean
 bin_query_duration_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
 {
-  GstElement *item = g_value_get_object (vitem);
+  gboolean res = FALSE;
+  GstObject *item = g_value_get_object (vitem);
+  if (GST_IS_PAD (item))
+    res = gst_pad_query (GST_PAD (item), fold->query);
+  else
+    res = gst_element_query (GST_ELEMENT (item), fold->query);
 
-  if (gst_element_query (item, fold->query)) {
+  if (res) {
     gint64 duration;
 
     g_value_set_boolean (ret, TRUE);
@@ -3639,9 +4152,14 @@ bin_query_duration_done (GstBin * bin, QueryFold * fold)
 static gboolean
 bin_query_position_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
 {
-  GstElement *item = g_value_get_object (vitem);
+  gboolean res = FALSE;
+  GstObject *item = g_value_get_object (vitem);
+  if (GST_IS_PAD (item))
+    res = gst_pad_query (GST_PAD (item), fold->query);
+  else
+    res = gst_element_query (GST_ELEMENT (item), fold->query);
 
-  if (gst_element_query (item, fold->query)) {
+  if (res) {
     gint64 position;
 
     g_value_set_boolean (ret, TRUE);
@@ -3672,9 +4190,13 @@ bin_query_position_done (GstBin * bin, QueryFold * fold)
 static gboolean
 bin_query_latency_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
 {
-  GstElement *item = g_value_get_object (vitem);
-
-  if (gst_element_query (item, fold->query)) {
+  gboolean res = FALSE;
+  GstObject *item = g_value_get_object (vitem);
+  if (GST_IS_PAD (item))
+    res = gst_pad_query (GST_PAD (item), fold->query);
+  else
+    res = gst_element_query (GST_ELEMENT (item), fold->query);
+  if (res) {
     GstClockTime min, max;
     gboolean live;
 
@@ -3693,7 +4215,7 @@ bin_query_latency_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
         fold->max = max;
       else if (max < fold->max)
         fold->max = max;
-      if (fold->live == FALSE)
+      if (!fold->live)
         fold->live = live;
     }
   } else {
@@ -3720,10 +4242,13 @@ bin_query_latency_done (GstBin * bin, QueryFold * fold)
 static gboolean
 bin_query_generic_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
 {
-  GstElement *item = g_value_get_object (vitem);
-  gboolean res;
-
-  if ((res = gst_element_query (item, fold->query))) {
+  gboolean res = FALSE;
+  GstObject *item = g_value_get_object (vitem);
+  if (GST_IS_PAD (item))
+    res = gst_pad_query (GST_PAD (item), fold->query);
+  else
+    res = gst_element_query (GST_ELEMENT (item), fold->query);
+  if (res) {
     g_value_set_boolean (ret, TRUE);
     GST_DEBUG_OBJECT (item, "answered query %p", fold->query);
   }
@@ -3732,17 +4257,59 @@ bin_query_generic_fold (const GValue * vitem, GValue * ret, QueryFold * fold)
   return !res;
 }
 
+/* Perform a query iteration for the given bin. The query is stored in
+ * QueryFold and iter should be either a GstPad iterator or a
+ * GstElement iterator. */
+static gboolean
+bin_iterate_fold (GstBin * bin, GstIterator * iter, QueryInitFunction fold_init,
+    QueryDoneFunction fold_done, GstIteratorFoldFunction fold_func,
+    QueryFold * fold_data, gboolean default_return)
+{
+  gboolean res = default_return;
+  GValue ret = { 0 };
+  /* set the result of the query to FALSE initially */
+  g_value_init (&ret, G_TYPE_BOOLEAN);
+  g_value_set_boolean (&ret, res);
+
+  while (TRUE) {
+    GstIteratorResult ires;
+
+    ires = gst_iterator_fold (iter, fold_func, &ret, fold_data);
+
+    switch (ires) {
+      case GST_ITERATOR_RESYNC:
+        gst_iterator_resync (iter);
+        if (fold_init)
+          fold_init (bin, fold_data);
+        g_value_set_boolean (&ret, res);
+        break;
+      case GST_ITERATOR_OK:
+      case GST_ITERATOR_DONE:
+        res = g_value_get_boolean (&ret);
+        if (fold_done != NULL && res)
+          fold_done (bin, fold_data);
+        goto done;
+      default:
+        res = FALSE;
+        goto done;
+    }
+  }
+done:
+  return res;
+}
+
 static gboolean
 gst_bin_query (GstElement * element, GstQuery * query)
 {
   GstBin *bin = GST_BIN_CAST (element);
   GstIterator *iter;
+  gboolean default_return = FALSE;
   gboolean res = FALSE;
+  gboolean src_pads_query_result = FALSE;
   GstIteratorFoldFunction fold_func;
   QueryInitFunction fold_init = NULL;
   QueryDoneFunction fold_done = NULL;
   QueryFold fold_data;
-  GValue ret = { 0 };
 
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_DURATION:
@@ -3759,7 +4326,7 @@ gst_bin_query (GstElement * element, GstQuery * query)
       for (cached = bin->messages; cached; cached = g_list_next (cached)) {
         GstMessage *message = (GstMessage *) cached->data;
 
-        if (GST_MESSAGE_TYPE (message) == GST_MESSAGE_DURATION &&
+        if (GST_MESSAGE_TYPE (message) == GST_MESSAGE_DURATION_CHANGED &&
             GST_MESSAGE_SRC (message) == GST_OBJECT_CAST (bin)) {
           GstFormat format;
           gint64 duration;
@@ -3800,7 +4367,7 @@ gst_bin_query (GstElement * element, GstQuery * query)
       fold_func = (GstIteratorFoldFunction) bin_query_latency_fold;
       fold_init = bin_query_min_max_init;
       fold_done = bin_query_latency_done;
-      res = TRUE;
+      default_return = TRUE;
       break;
     }
     default:
@@ -3810,10 +4377,6 @@ gst_bin_query (GstElement * element, GstQuery * query)
 
   fold_data.query = query;
 
-  /* set the result of the query to FALSE initially */
-  g_value_init (&ret, G_TYPE_BOOLEAN);
-  g_value_set_boolean (&ret, res);
-
   iter = gst_bin_iterate_sinks (bin);
   GST_DEBUG_OBJECT (bin, "Sending query %p (type %s) to sink children",
       query, GST_QUERY_TYPE_NAME (query));
@@ -3821,35 +4384,53 @@ gst_bin_query (GstElement * element, GstQuery * query)
   if (fold_init)
     fold_init (bin, &fold_data);
 
-  while (TRUE) {
-    GstIteratorResult ires;
-
-    ires = gst_iterator_fold (iter, fold_func, &ret, &fold_data);
-
-    switch (ires) {
-      case GST_ITERATOR_RESYNC:
-        gst_iterator_resync (iter);
-        if (fold_init)
-          fold_init (bin, &fold_data);
-        g_value_set_boolean (&ret, res);
-        break;
-      case GST_ITERATOR_OK:
-      case GST_ITERATOR_DONE:
-        res = g_value_get_boolean (&ret);
-        if (fold_done != NULL && res)
-          fold_done (bin, &fold_data);
-        goto done;
-      default:
-        res = FALSE;
-        goto done;
-    }
-  }
-done:
+  res =
+      bin_iterate_fold (bin, iter, fold_init, fold_done, fold_func, &fold_data,
+      default_return);
   gst_iterator_free (iter);
+
+  if (!res) {
+    /* Query the source pads of the element */
+    iter = gst_element_iterate_src_pads (element);
+    src_pads_query_result =
+        bin_iterate_fold (bin, iter, fold_init, fold_done, fold_func,
+        &fold_data, default_return);
+    gst_iterator_free (iter);
+
+    if (src_pads_query_result)
+      res = TRUE;
+  }
 
   GST_DEBUG_OBJECT (bin, "query %p result %d", query, res);
 
   return res;
+}
+
+static void
+set_context (const GValue * item, gpointer user_data)
+{
+  GstElement *element = g_value_get_object (item);
+
+  gst_element_set_context (element, user_data);
+}
+
+static void
+gst_bin_set_context (GstElement * element, GstContext * context)
+{
+  GstBin *bin;
+  GstIterator *children;
+
+  g_return_if_fail (GST_IS_BIN (element));
+
+  bin = GST_BIN (element);
+
+  GST_ELEMENT_CLASS (parent_class)->set_context (element, context);
+
+  children = gst_bin_iterate_elements (bin);
+  while (gst_iterator_foreach (children, set_context,
+          context) == GST_ITERATOR_RESYNC)
+    gst_iterator_resync (children);
+  gst_iterator_free (children);
 }
 
 static gint
@@ -3873,11 +4454,12 @@ compare_name (const GValue * velement, const gchar * name)
  * Gets the element with the given name from a bin. This
  * function recurses into child bins.
  *
- * Returns NULL if no element with the given name is found in the bin.
+ * Returns %NULL if no element with the given name is found in the bin.
  *
  * MT safe.  Caller owns returned reference.
  *
- * Returns: (transfer full): the #GstElement with the given name, or NULL
+ * Returns: (transfer full) (nullable): the #GstElement with the given
+ * name, or %NULL
  */
 GstElement *
 gst_bin_get_by_name (GstBin * bin, const gchar * name)
@@ -3915,12 +4497,13 @@ gst_bin_get_by_name (GstBin * bin, const gchar * name)
  * Gets the element with the given name from this bin. If the
  * element is not found, a recursion is performed on the parent bin.
  *
- * Returns NULL if:
+ * Returns %NULL if:
  * - no element with the given name is found in the bin
  *
  * MT safe.  Caller owns returned reference.
  *
- * Returns: (transfer full): the #GstElement with the given name, or NULL
+ * Returns: (transfer full) (nullable): the #GstElement with the given
+ * name, or %NULL
  */
 GstElement *
 gst_bin_get_by_name_recurse_up (GstBin * bin, const gchar * name)
@@ -4020,8 +4603,9 @@ gst_bin_get_by_interface (GstBin * bin, GType iface)
  *
  * MT safe.  Caller owns returned value.
  *
- * Returns: (transfer full): a #GstIterator of #GstElement for all elements
- *          in the bin implementing the given interface, or NULL
+ * Returns: (transfer full) (nullable): a #GstIterator of #GstElement
+ *     for all elements in the bin implementing the given interface,
+ *     or %NULL
  */
 GstIterator *
 gst_bin_iterate_all_by_interface (GstBin * bin, GType iface)

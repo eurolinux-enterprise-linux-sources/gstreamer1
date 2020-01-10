@@ -4,7 +4,10 @@ plugin_LTLIBRARIES = libgstcoreelements.la
 libgstcoreelements_la_DEPENDENCIES = $(top_builddir)/gst/libgstreamer-@GST_API_VERSION@.la
 libgstcoreelements_la_SOURCES =	\
 	gstcapsfilter.c		\
+	gstconcat.c		\
+	gstdownloadbuffer.c     \
 	gstelements.c		\
+	gstelements_private.c	\
 	gstfakesrc.c		\
 	gstfakesink.c		\
 	gstfdsrc.c		\
@@ -15,13 +18,13 @@ libgstcoreelements_la_SOURCES =	\
 	gstidentity.c		\
 	gstinputselector.c	\
 	gstoutputselector.c	\
-	gstdataqueue.c 		\
 	gstmultiqueue.c		\
-	gstqueuearray.c \
 	gstqueue.c		\
 	gstqueue2.c		\
+	gstsparsefile.c		\
 	gsttee.c		\
 	gsttypefindelement.c	\
+	gststreamiddemux.c	\
 	gstvalve.c
 
 libgstcoreelements_la_CFLAGS = $(GST_OBJ_CFLAGS)
@@ -33,6 +36,9 @@ libgstcoreelements_la_LIBTOOLFLAGS = $(GST_PLUGIN_LIBTOOLFLAGS)
 
 noinst_HEADERS =		\
 	gstcapsfilter.h		\
+	gstconcat.h		\
+	gstdownloadbuffer.h	\
+	gstelements_private.h	\
 	gstfakesink.h		\
 	gstfakesrc.h		\
 	gstfdsrc.h		\
@@ -43,13 +49,13 @@ noinst_HEADERS =		\
 	gstidentity.h		\
 	gstinputselector.h	\
 	gstoutputselector.h	\
-	gstdataqueue.h 		\
 	gstmultiqueue.h		\
-	gstqueuearray.h \
 	gstqueue.h		\
 	gstqueue2.h		\
+	gstsparsefile.h		\
 	gsttee.h		\
 	gsttypefindelement.h	\
+	gststreamiddemux.h	\
 	gstvalve.h
 
 EXTRA_DIST = gstfdsrc.c \
@@ -62,14 +68,3 @@ CLEANFILES = *.gcno *.gcda *.gcov *.gcov.out
 	$(GCOV) -b -f -o $^ > $@.out
 
 gcov: $(libgstcoreelements_la_SOURCES:=.gcov)
-
-Android.mk: Makefile.am
-	androgenizer -:PROJECT gstreamer -:SHARED libgstcoreelements -:TAGS eng debug \
-	 -:REL_TOP $(top_srcdir) -:ABS_TOP $(abs_top_srcdir) \
-	 -:SOURCES $(libgstcoreelements_la_SOURCES) \
-	 -:CFLAGS $(DEFS) $(libgstcoreelements_la_CFLAGS) \
-	 -:LDFLAGS $(libgstcoreelements_la_LDFLAGS) \
-	            $(libgstcoreelements_la_LIBADD) \
-	 -:PASSTHROUGH LOCAL_ARM_MODE:=arm \
-	               LOCAL_MODULE_PATH:=$$\(TARGET_OUT\)/lib/gstreamer-@GST_API_VERSION@ \
-	> $@

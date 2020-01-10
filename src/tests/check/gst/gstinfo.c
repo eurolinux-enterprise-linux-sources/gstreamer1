@@ -16,13 +16,18 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <gst/check/gstcheck.h>
 
+#include <string.h>
+
 #ifndef GST_DISABLE_GST_DEBUG
+
+static GList *messages;         /* NULL */
+static gboolean save_messages;  /* FALSE */
 
 static void
 printf_extension_log_func (GstDebugCategory * category,
@@ -33,6 +38,9 @@ printf_extension_log_func (GstDebugCategory * category,
 
   dbg_msg = gst_debug_message_get (message);
   fail_unless (dbg_msg != NULL);
+
+  if (save_messages && g_str_equal (category->name, "check"))
+    messages = g_list_append (messages, g_strdup (dbg_msg));
 
   /* g_print ("%s\n", dbg_msg); */
 
@@ -79,6 +87,24 @@ GST_START_TEST (info_ptr_format_printf_extension)
 
     GST_LOG ("MESSAGE: %" GST_PTR_FORMAT, msg);
     gst_message_unref (msg);
+  }
+
+  /* buffer and buffer list */
+  {
+    GstBufferList *list;
+    GstBuffer *buf;
+
+    buf = gst_buffer_new_allocate (NULL, 42, NULL);
+    GST_BUFFER_PTS (buf) = 5 * GST_SECOND;
+    GST_BUFFER_DURATION (buf) = GST_SECOND;
+    GST_LOG ("BUFFER: %" GST_PTR_FORMAT, buf);
+
+    list = gst_buffer_list_new ();
+    gst_buffer_list_add (list, buf);
+    buf = gst_buffer_new_allocate (NULL, 58, NULL);
+    gst_buffer_list_add (list, buf);
+    GST_LOG ("BUFFERLIST: %" GST_PTR_FORMAT, list);
+    gst_buffer_list_unref (list);
   }
 
 #if 0
@@ -214,7 +240,7 @@ GST_START_TEST (info_dump_mem)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x01, '%', 's', '%', 's'
   };
 
-  e = gst_element_factory_make ("fakesink", NULL);
+  e = gst_pipeline_new ("pipeline");
   GST_DEBUG_CATEGORY_INIT (cat, "dumpcat", 0, "data dump debug category");
   GST_MEMDUMP ("quicktime header", data, sizeof (data));
   GST_MEMDUMP (NULL, data, sizeof (data));
@@ -231,7 +257,7 @@ GST_START_TEST (info_fixme)
   GstDebugCategory *cat = NULL;
   GstElement *e;
 
-  e = gst_element_factory_make ("fakesink", NULL);
+  e = gst_pipeline_new ("pipeline");
   GST_DEBUG_CATEGORY_INIT (cat, "fixcat", 0, "FIXME debug category");
   GST_FIXME ("fix %s thing", "this");
   GST_FIXME_OBJECT (e, "fix %s object", "this");
@@ -241,7 +267,160 @@ GST_START_TEST (info_fixme)
 }
 
 GST_END_TEST;
+
+/* need this indirection so the compiler doesn't check the printf format
+ * like it would if we used GST_INFO directly (it would complain) */
+static void
+call_GST_INFO (const gchar * format, ...)
+{
+  va_list var_args;
+
+  va_start (var_args, format);
+  gst_debug_log_valist (GST_CAT_DEFAULT, GST_LEVEL_INFO, __FILE__, GST_FUNCTION,
+      __LINE__, NULL, format, var_args);
+  va_end (var_args);
+}
+
+GST_START_TEST (info_old_printf_extensions)
+{
+  GstSegment segment;
+  GstCaps *caps;
+  gchar *str;
+
+  /* set up our own log function to make sure the code in gstinfo is actually
+   * executed without GST_DEBUG being set or it being output to stdout */
+  gst_debug_remove_log_function (gst_debug_log_default);
+  gst_debug_add_log_function (printf_extension_log_func, NULL, NULL);
+
+  gst_debug_set_default_threshold (GST_LEVEL_LOG);
+
+  save_messages = TRUE;
+
+  fail_unless (messages == NULL);
+
+  gst_segment_init (&segment, GST_FORMAT_TIME);
+  caps = gst_caps_new_simple ("foo/bar", "width", G_TYPE_INT, 4096,
+      "framerate", GST_TYPE_FRACTION, 50, 1, "format", G_TYPE_STRING, "ARGB",
+      NULL);
+  call_GST_INFO ("Segment %Q, caps are %P", &segment, caps);
+  gst_caps_unref (caps);
+
+  fail_unless_equals_int (g_list_length (messages), 1);
+  str = (gchar *) messages->data;
+  fail_unless (str != NULL);
+
+  GST_INFO ("str = '%s'", str);
+
+  fail_unless (strstr (str, "time") != NULL);
+  fail_unless (strstr (str, "start=0:00:00.000000000") != NULL);
+  fail_unless (strstr (str, "stop=99:99:99.999999999") != NULL);
+  fail_unless (strstr (str, "applied_rate=1.000000") != NULL);
+
+  fail_unless (strstr (str, " caps are ") != NULL);
+  fail_unless (strstr (str, "foo/bar") != NULL);
+  fail_unless (strstr (str, "width=(int)4096") != NULL);
+  fail_unless (strstr (str, "framerate=(fraction)50/1") != NULL);
+  fail_unless (strstr (str, "ARGB") != NULL);
+
+  /* clean up */
+  gst_debug_set_default_threshold (GST_LEVEL_NONE);
+  gst_debug_add_log_function (gst_debug_log_default, NULL, NULL);
+  gst_debug_remove_log_function (printf_extension_log_func);
+  save_messages = FALSE;
+  g_list_free_full (messages, (GDestroyNotify) g_free);
+  messages = NULL;
+}
+
+GST_END_TEST;
+
+GST_START_TEST (info_register_same_debug_category_twice)
+{
+  GstDebugCategory *cat1 = NULL, *cat2 = NULL;
+
+  GST_DEBUG_CATEGORY_INIT (cat1, "dupli-cat", 0, "Going once");
+  GST_DEBUG_CATEGORY_INIT (cat2, "dupli-cat", 0, "Going twice");
+
+  fail_unless_equals_pointer (cat1, cat2);
+
+  fail_unless_equals_string (gst_debug_category_get_name (cat1), "dupli-cat");
+  fail_unless_equals_string (gst_debug_category_get_description (cat1),
+      "Going once");
+}
+
+GST_END_TEST;
+
+GST_START_TEST (info_set_and_unset_single)
+{
+  GstDebugLevel orig = gst_debug_get_default_threshold ();
+  GstDebugLevel cat1, cat2;
+  GstDebugCategory *states;
+
+  GST_DEBUG_CATEGORY_GET (states, "GST_STATES");
+  fail_unless (states != NULL);
+
+  gst_debug_set_default_threshold (GST_LEVEL_WARNING);
+
+  gst_debug_set_threshold_for_name ("GST_STATES", GST_LEVEL_DEBUG);
+  cat1 = gst_debug_category_get_threshold (states);
+  gst_debug_unset_threshold_for_name ("GST_STATES");
+  cat2 = gst_debug_category_get_threshold (states);
+
+  gst_debug_set_default_threshold (orig);
+  fail_unless (cat1 = GST_LEVEL_DEBUG);
+  fail_unless (cat2 = GST_LEVEL_WARNING);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (info_set_and_unset_multiple)
+{
+  GstDebugLevel orig = gst_debug_get_default_threshold ();
+  GstDebugLevel cat1, cat2, cat3;
+  GstDebugCategory *states;
+  GstDebugCategory *caps;
+
+  GST_DEBUG_CATEGORY_GET (states, "GST_STATES");
+  GST_DEBUG_CATEGORY_GET (caps, "GST_CAPS");
+  fail_unless (states != NULL);
+  fail_unless (caps != NULL);
+
+  gst_debug_set_default_threshold (GST_LEVEL_WARNING);
+
+  gst_debug_set_threshold_for_name ("GST_STATES", GST_LEVEL_DEBUG);
+  gst_debug_set_threshold_for_name ("GST_CAPS", GST_LEVEL_DEBUG);
+  cat1 = gst_debug_category_get_threshold (states);
+  gst_debug_unset_threshold_for_name ("GST_STATES");
+  gst_debug_unset_threshold_for_name ("GST_CAPS");
+  cat2 = gst_debug_category_get_threshold (states);
+  cat3 = gst_debug_category_get_threshold (caps);
+
+  gst_debug_set_default_threshold (orig);
+
+  fail_unless (cat1 = GST_LEVEL_DEBUG);
+  fail_unless (cat2 = GST_LEVEL_WARNING);
+  fail_unless (cat3 = GST_LEVEL_WARNING);
+}
+
+GST_END_TEST;
 #endif
+
+GST_START_TEST (info_fourcc)
+{
+  gchar *res;
+  const gchar *cmp;
+
+  cmp = "abcd";
+  res = g_strdup_printf ("%" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (0x64636261));
+  fail_unless_equals_string (res, cmp);
+  g_free (res);
+
+  cmp = ".bcd";
+  res = g_strdup_printf ("%" GST_FOURCC_FORMAT, GST_FOURCC_ARGS (0x646362a9));
+  fail_unless_equals_string (res, cmp);
+  g_free (res);
+}
+
+GST_END_TEST;
 
 static Suite *
 gst_info_suite (void)
@@ -252,12 +431,17 @@ gst_info_suite (void)
   tcase_set_timeout (tc_chain, 30);
 
   suite_add_tcase (s, tc_chain);
+  tcase_add_test (tc_chain, info_fourcc);
 #ifndef GST_DISABLE_GST_DEBUG
   tcase_add_test (tc_chain, info_segment_format_printf_extension);
   tcase_add_test (tc_chain, info_ptr_format_printf_extension);
   tcase_add_test (tc_chain, info_log_handler);
   tcase_add_test (tc_chain, info_dump_mem);
   tcase_add_test (tc_chain, info_fixme);
+  tcase_add_test (tc_chain, info_old_printf_extensions);
+  tcase_add_test (tc_chain, info_register_same_debug_category_twice);
+  tcase_add_test (tc_chain, info_set_and_unset_single);
+  tcase_add_test (tc_chain, info_set_and_unset_multiple);
 #endif
 
   return s;

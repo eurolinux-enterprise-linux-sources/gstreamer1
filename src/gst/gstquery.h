@@ -18,8 +18,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -35,6 +35,7 @@
 #include <gst/gstpad.h>
 #include <gst/gstallocator.h>
 #include <gst/gsttoc.h>
+#include <gst/gstcontext.h>
 
 G_BEGIN_DECLS
 
@@ -101,6 +102,8 @@ typedef enum {
  * @GST_QUERY_ACCEPT_CAPS: the accept caps query
  * @GST_QUERY_CAPS: the caps query
  * @GST_QUERY_DRAIN: wait till all serialized data is consumed downstream
+ * @GST_QUERY_CONTEXT: query the pipeline-local context from
+ *     downstream or upstream (since 1.2)
  *
  * Standard predefined Query types
  */
@@ -124,11 +127,14 @@ typedef enum {
   GST_QUERY_SCHEDULING   = GST_QUERY_MAKE_TYPE (150, FLAG(UPSTREAM)),
   GST_QUERY_ACCEPT_CAPS  = GST_QUERY_MAKE_TYPE (160, FLAG(BOTH)),
   GST_QUERY_CAPS         = GST_QUERY_MAKE_TYPE (170, FLAG(BOTH)),
-  GST_QUERY_DRAIN        = GST_QUERY_MAKE_TYPE (180, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
+  GST_QUERY_DRAIN        = GST_QUERY_MAKE_TYPE (180, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+  GST_QUERY_CONTEXT      = GST_QUERY_MAKE_TYPE (190, FLAG(BOTH))
 } GstQueryType;
 #undef FLAG
 
-#define GST_TYPE_QUERY                         (gst_query_get_type())
+GST_EXPORT GType _gst_query_type;
+
+#define GST_TYPE_QUERY                         (_gst_query_type)
 #define GST_IS_QUERY(obj)                      (GST_IS_MINI_OBJECT_TYPE (obj, GST_TYPE_QUERY))
 #define GST_QUERY_CAST(obj)                    ((GstQuery*)(obj))
 #define GST_QUERY(obj)                         (GST_QUERY_CAST(obj))
@@ -204,10 +210,6 @@ GType           gst_query_get_type             (void);
  *
  * Returns: @q
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstQuery * gst_query_ref (GstQuery * q);
-#endif
-
 static inline GstQuery *
 gst_query_ref (GstQuery * q)
 {
@@ -221,10 +223,6 @@ gst_query_ref (GstQuery * q)
  * Decreases the refcount of the query. If the refcount reaches 0, the query
  * will be freed.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC void gst_query_unref (GstQuery * q);
-#endif
-
 static inline void
 gst_query_unref (GstQuery * q)
 {
@@ -242,10 +240,6 @@ gst_query_unref (GstQuery * q)
  *
  * Returns: (transfer full): a new copy of @q.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstQuery * gst_query_copy (const GstQuery * q);
-#endif
-
 static inline GstQuery *
 gst_query_copy (const GstQuery * q)
 {
@@ -270,8 +264,8 @@ gst_query_copy (const GstQuery * q)
 #define         gst_query_make_writable(q)      GST_QUERY_CAST (gst_mini_object_make_writable (GST_MINI_OBJECT_CAST (q)))
 /**
  * gst_query_replace:
- * @old_query: (inout) (transfer full): pointer to a pointer to a #GstQuery
- *     to be replaced.
+ * @old_query: (inout) (transfer full) (nullable): pointer to a pointer to a
+ *     #GstQuery to be replaced.
  * @new_query: (allow-none) (transfer none): pointer to a #GstQuery that will
  *     replace the query pointed to by @old_query.
  *
@@ -280,14 +274,10 @@ gst_query_copy (const GstQuery * q)
  * in some cases), and the reference counts are updated appropriately (the old
  * query is unreffed, the new one is reffed).
  *
- * Either @new_query or the #GstQuery pointed to by @old_query may be NULL.
+ * Either @new_query or the #GstQuery pointed to by @old_query may be %NULL.
  *
- * Returns: TRUE if @new_query was different from @old_query
+ * Returns: %TRUE if @new_query was different from @old_query
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC gboolean gst_query_replace (GstQuery **old_query, GstQuery *new_query);
-#endif
-
 static inline gboolean
 gst_query_replace (GstQuery **old_query, GstQuery *new_query)
 {
@@ -393,6 +383,10 @@ gboolean        gst_query_parse_nth_buffering_range (GstQuery *query,
 GstQuery *      gst_query_new_uri                    (void) G_GNUC_MALLOC;
 void            gst_query_parse_uri                  (GstQuery *query, gchar **uri);
 void            gst_query_set_uri                    (GstQuery *query, const gchar *uri);
+void            gst_query_parse_uri_redirection      (GstQuery *query, gchar **uri);
+void            gst_query_set_uri_redirection        (GstQuery *query, const gchar *uri);
+void            gst_query_parse_uri_redirection_permanent (GstQuery *query, gboolean * permanent);
+void            gst_query_set_uri_redirection_permanent (GstQuery *query, gboolean permanent);
 
 /* allocation query */
 GstQuery *      gst_query_new_allocation             (GstCaps *caps, gboolean need_pool) G_GNUC_MALLOC;
@@ -411,6 +405,7 @@ void            gst_query_set_nth_allocation_pool    (GstQuery *query, guint ind
                                                       GstBufferPool *pool,
                                                       guint size, guint min_buffers,
                                                       guint max_buffers);
+void            gst_query_remove_nth_allocation_pool (GstQuery *query, guint index);
 
 /* allocators */
 void            gst_query_add_allocation_param       (GstQuery *query, GstAllocator *allocator,
@@ -422,6 +417,7 @@ void            gst_query_parse_nth_allocation_param (GstQuery *query, guint ind
 void            gst_query_set_nth_allocation_param   (GstQuery *query, guint index,
                                                       GstAllocator *allocator,
                                                       const GstAllocationParams *params);
+void            gst_query_remove_nth_allocation_param (GstQuery *query, guint index);
 
 /* metadata */
 void            gst_query_add_allocation_meta        (GstQuery *query, GType api, const GstStructure *params);
@@ -437,12 +433,14 @@ gboolean        gst_query_find_allocation_meta       (GstQuery *query, GType api
  * GstSchedulingFlags:
  * @GST_SCHEDULING_FLAG_SEEKABLE: if seeking is possible
  * @GST_SCHEDULING_FLAG_SEQUENTIAL: if sequential access is recommended
+ * @GST_SCHEDULING_FLAG_BANDWIDTH_LIMITED: if bandwidth is limited and buffering possible (since 1.2)
  *
  * The different scheduling flags.
  */
 typedef enum {
-  GST_SCHEDULING_FLAG_SEEKABLE      = (1 << 0),
-  GST_SCHEDULING_FLAG_SEQUENTIAL    = (1 << 1)
+  GST_SCHEDULING_FLAG_SEEKABLE          = (1 << 0),
+  GST_SCHEDULING_FLAG_SEQUENTIAL        = (1 << 1),
+  GST_SCHEDULING_FLAG_BANDWIDTH_LIMITED = (1 << 2)
 } GstSchedulingFlags;
 
 GstQuery *      gst_query_new_scheduling          (void) G_GNUC_MALLOC;
@@ -474,6 +472,16 @@ void            gst_query_parse_caps_result        (GstQuery *query, GstCaps **c
 
 /* drain query */
 GstQuery *      gst_query_new_drain                (void) G_GNUC_MALLOC;
+
+/* context query */
+GstQuery *      gst_query_new_context              (const gchar * context_type) G_GNUC_MALLOC;
+gboolean        gst_query_parse_context_type       (GstQuery * query, const gchar ** context_type);
+void            gst_query_set_context              (GstQuery *query, GstContext *context);
+void            gst_query_parse_context            (GstQuery *query, GstContext **context);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstQuery, gst_query_unref)
+#endif
 
 G_END_DECLS
 

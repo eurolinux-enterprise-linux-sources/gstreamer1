@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -34,7 +34,6 @@ G_BEGIN_DECLS
 #define GST_IS_TYPE_FIND_ELEMENT(obj) 		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_TYPE_FIND_ELEMENT))
 #define GST_TYPE_FIND_ELEMENT_CLASS(klass) 	(G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_TYPE_FIND_ELEMENT, GstTypeFindElementClass))
 #define GST_IS_TYPE_FIND_ELEMENT_CLASS(klass) 	(G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_TYPE_FIND_ELEMENT))
-#define GST_TYPE_FIND_ELEMENT_GET_CLASS(obj) 	(G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_TYPE_FIND_ELEMENT, GstTypeFindElementClass))
 
 typedef struct _GstTypeFindElement 		GstTypeFindElement;
 typedef struct _GstTypeFindElementClass 	GstTypeFindElementClass;
@@ -59,6 +58,8 @@ struct _GstTypeFindElement {
   GList *               cached_events;
   GstCaps *             force_caps;
 
+  guint64		initial_offset;
+  
   /* Only used when driving the pipeline */
   gboolean need_segment;
   gboolean need_stream_start;

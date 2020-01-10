@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -85,8 +85,8 @@ _priv_gst_format_initialize (void)
  *
  * Get a printable name for the given format. Do not modify or free.
  *
- * Returns: a reference to the static name of the format or NULL if
- * the format is unknown.
+ * Returns: (nullable): a reference to the static name of the format
+ * or %NULL if the format is unknown.
  */
 const gchar *
 gst_format_get_name (GstFormat format)
@@ -201,7 +201,7 @@ gst_format_get_by_nick (const gchar * nick)
  *
  * See if the given format is inside the format array.
  *
- * Returns: TRUE if the format is found inside the array
+ * Returns: %TRUE if the format is found inside the array
  */
 gboolean
 gst_formats_contains (const GstFormat * formats, GstFormat format)
@@ -225,7 +225,8 @@ gst_formats_contains (const GstFormat * formats, GstFormat format)
  *
  * Get details about the given format.
  *
- * Returns: The #GstFormatDefinition for @format or NULL on failure.
+ * Returns: (nullable): The #GstFormatDefinition for @format or %NULL
+ * on failure.
  *
  * MT safe.
  */

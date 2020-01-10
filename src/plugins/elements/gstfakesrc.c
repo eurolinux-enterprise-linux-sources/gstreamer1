@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:element-fakesrc
@@ -32,12 +32,10 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch -v fakesrc num-buffers=5 ! fakesink
+ * gst-launch-1.0 -v fakesrc num-buffers=5 ! fakesink
  * ]| This pipeline will push 5 empty buffers to the fakesink element and then
  * sends an EOS.
  * </refsect2>
- *
- * Last reviewed on 2008-06-20 (0.10.21)
  */
 
 /* FIXME: this ignores basesrc::blocksize property, which could be used as an
@@ -51,6 +49,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gstelements_private.h"
 #include "gstfakesrc.h"
 
 static GstStaticPadTemplate srctemplate = GST_STATIC_PAD_TEMPLATE ("src",
@@ -132,7 +131,7 @@ gst_fake_src_output_get_type (void)
 
   if (!fakesrc_output_type) {
     fakesrc_output_type =
-        g_enum_register_static ("GstFakeSrcOutput", fakesrc_output);
+        g_enum_register_static ("GstFakeSrcOutputType", fakesrc_output);
   }
   return fakesrc_output_type;
 }
@@ -184,7 +183,7 @@ gst_fake_src_filltype_get_type (void)
   static const GEnumValue fakesrc_filltype[] = {
     {FAKE_SRC_FILLTYPE_NOTHING, "Leave data as malloced", "nothing"},
     {FAKE_SRC_FILLTYPE_ZERO, "Fill buffers with zeros", "zero"},
-    {FAKE_SRC_FILLTYPE_RANDOM, "Fill buffers with random crap", "random"},
+    {FAKE_SRC_FILLTYPE_RANDOM, "Fill buffers with random data", "random"},
     {FAKE_SRC_FILLTYPE_PATTERN, "Fill buffers with pattern 0x00 -> 0xff",
         "pattern"},
     {FAKE_SRC_FILLTYPE_PATTERN_CONT,
@@ -280,9 +279,10 @@ gst_fake_src_class_init (GstFakeSrcClass * klass)
   g_object_class_install_property (gobject_class, PROP_SYNC,
       g_param_spec_boolean ("sync", "Sync", "Sync to the clock to the datarate",
           DEFAULT_SYNC, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  /*  FIXME 2.0: Remove unused pattern property. Not implemented */
   g_object_class_install_property (gobject_class, PROP_PATTERN,
-      g_param_spec_string ("pattern", "pattern", "pattern", DEFAULT_PATTERN,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+      g_param_spec_string ("pattern", "pattern", "Set the pattern (unused)",
+          DEFAULT_PATTERN, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   pspec_last_message = g_param_spec_string ("last-message", "last-message",
       "The last status message", NULL,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
@@ -340,8 +340,7 @@ gst_fake_src_class_init (GstFakeSrcClass * klass)
       "Source",
       "Push empty (no data) buffers around",
       "Erik Walthinsen <omega@cse.ogi.edu>, " "Wim Taymans <wim@fluendo.com>");
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&srctemplate));
+  gst_element_class_add_static_pad_template (gstelement_class, &srctemplate);
 
   gstbase_src_class->is_seekable = GST_DEBUG_FUNCPTR (gst_fake_src_is_seekable);
   gstbase_src_class->start = GST_DEBUG_FUNCPTR (gst_fake_src_start);
@@ -556,7 +555,6 @@ gst_fake_src_get_property (GObject * object, guint prop_id, GValue * value,
       g_value_set_boolean (value, src->sync);
       break;
     case PROP_PATTERN:
-      g_value_set_string (value, src->pattern);
       break;
     case PROP_SILENT:
       g_value_set_boolean (value, src->silent);
@@ -717,7 +715,10 @@ gst_fake_src_create_buffer (GstFakeSrc * src, gsize * bufsize)
         /* try again (this will allocate a new parent) */
         return gst_fake_src_create_buffer (src, bufsize);
       }
-      gst_buffer_map (buf, &info, GST_MAP_WRITE);
+      if (buf == NULL)
+        goto buffer_create_fail;
+      if (!gst_buffer_map (buf, &info, GST_MAP_WRITE))
+        goto buffer_write_fail;
       gst_fake_src_prepare_buffer (src, info.data, info.size);
       gst_buffer_unmap (buf, &info);
       break;
@@ -727,12 +728,28 @@ gst_fake_src_create_buffer (GstFakeSrc * src, gsize * bufsize)
       break;
   }
   if (dump) {
-    gst_buffer_map (buf, &info, GST_MAP_READ);
-    gst_util_dump_mem (info.data, info.size);
-    gst_buffer_unmap (buf, &info);
+    if (gst_buffer_map (buf, &info, GST_MAP_READ)) {
+      gst_util_dump_mem (info.data, info.size);
+      gst_buffer_unmap (buf, &info);
+    }
   }
 
   return buf;
+
+buffer_create_fail:
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, BUSY, (NULL),
+        ("Failed to create a buffer"));
+    return NULL;
+  }
+
+buffer_write_fail:
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, WRITE, (NULL),
+        ("Failed to write to buffer"));
+    gst_buffer_unref (buf);
+    return NULL;
+  }
 }
 
 static void
@@ -806,7 +823,7 @@ gst_fake_src_create (GstBaseSrc * basesrc, guint64 offset, guint length,
 
   if (!src->silent) {
     gchar dts_str[64], pts_str[64], dur_str[64];
-    gchar flag_str[100];
+    gchar *flag_str;
 
     GST_OBJECT_LOCK (src);
     g_free (src->last_message);
@@ -830,25 +847,7 @@ gst_fake_src_create (GstBaseSrc * basesrc, guint64 offset, guint length,
       g_strlcpy (dur_str, "none", sizeof (dur_str));
     }
 
-    {
-      const char *flag_list[15] = {
-        "", "", "", "", "live", "decode-only", "discont", "resync", "corrupted",
-        "marker", "header", "gap", "droppable", "delta-unit", "in-caps"
-      };
-      int i;
-      char *end = flag_str;
-      end[0] = '\0';
-      for (i = 0; i < G_N_ELEMENTS (flag_list); i++) {
-        if (GST_MINI_OBJECT_CAST (buf)->flags & (1 << i)) {
-          strcpy (end, flag_list[i]);
-          end += strlen (end);
-          end[0] = ' ';
-          end[1] = '\0';
-          end++;
-        }
-      }
-    }
-
+    flag_str = gst_buffer_get_flags_string (buf);
     src->last_message =
         g_strdup_printf ("create   ******* (%s:%s) (%u bytes, dts: %s, pts:%s"
         ", duration: %s, offset: %" G_GINT64_FORMAT ", offset_end: %"
@@ -857,6 +856,7 @@ gst_fake_src_create (GstBaseSrc * basesrc, guint64 offset, guint length,
         dts_str, pts_str, dur_str, GST_BUFFER_OFFSET (buf),
         GST_BUFFER_OFFSET_END (buf), GST_MINI_OBJECT_CAST (buf)->flags,
         flag_str, buf);
+    g_free (flag_str);
     GST_OBJECT_UNLOCK (src);
 
     g_object_notify_by_pspec ((GObject *) src, pspec_last_message);

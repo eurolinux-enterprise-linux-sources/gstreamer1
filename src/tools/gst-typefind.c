@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -106,7 +106,7 @@ typefind_file (const gchar * filename)
       if (msg) {
         gst_message_parse_error (msg, &err, NULL);
         g_printerr ("%s - FAILED: %s\n", filename, err->message);
-        g_error_free (err);
+        g_clear_error (&err);
         gst_message_unref (msg);
       } else {
         g_printerr ("%s - FAILED: unknown error\n", filename);
@@ -147,6 +147,8 @@ main (int argc, char *argv[])
     {NULL}
   };
 
+  setlocale (LC_ALL, "");
+
 #ifdef ENABLE_NLS
   bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
@@ -160,6 +162,8 @@ main (int argc, char *argv[])
   g_option_context_add_group (ctx, gst_init_get_option_group ());
   if (!g_option_context_parse (ctx, &argc, &argv, &err)) {
     g_print ("Error initializing: %s\n", GST_STR_NULL (err->message));
+    g_clear_error (&err);
+    g_option_context_free (ctx);
     exit (1);
   }
   g_option_context_free (ctx);
@@ -167,7 +171,7 @@ main (int argc, char *argv[])
   gst_tools_print_version ();
 
   if (filenames == NULL || *filenames == NULL) {
-    g_print ("Please give a filename to typefind\n\n");
+    g_print ("Please give one or more filenames to %s\n\n", g_get_prgname ());
     return 1;
   }
 

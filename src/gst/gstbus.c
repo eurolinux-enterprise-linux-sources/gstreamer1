@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -63,8 +63,6 @@
  *
  * Note that a #GstPipeline will set its bus into flushing state when changing
  * from READY to NULL state.
- *
- * Last reviewed on 2012-03-28 (0.11.3)
  */
 
 #include "gst_private.h"
@@ -80,6 +78,12 @@
 
 #include "gstbus.h"
 #include "glib-compat-private.h"
+
+#ifdef G_OS_WIN32
+#  ifndef EWOULDBLOCK
+#  define EWOULDBLOCK EAGAIN    /* This is just to placate gcc */
+#  endif
+#endif /* G_OS_WIN32 */
 
 #define GST_CAT_DEFAULT GST_CAT_BUS
 /* bus signals */
@@ -113,11 +117,10 @@ struct _GstBusPrivate
   gpointer sync_handler_data;
   GDestroyNotify sync_handler_notify;
 
-  guint signal_watch_id;
   guint num_signal_watchers;
 
   guint num_sync_message_emitters;
-  GSource *watch_id;
+  GSource *signal_watch;
 
   gboolean enable_async;
   GstPoll *poll;
@@ -152,6 +155,8 @@ gst_bus_constructed (GObject * object)
     bus->priv->poll = gst_poll_new_timer ();
     gst_poll_get_read_gpollfd (bus->priv->poll, &bus->priv->pollfd);
   }
+
+  G_OBJECT_CLASS (gst_bus_parent_class)->constructed (object);
 }
 
 static void
@@ -188,12 +193,8 @@ gst_bus_class_init (GstBusClass * klass)
    * A message has been posted on the bus. This signal is emitted from the
    * thread that posted the message so one has to be careful with locking.
    *
-   * This signal will not be emitted by default, you have to set up
-   * gst_bus_sync_signal_handler() as a sync handler if you want this
-   * signal to be emitted when a message is posted on the bus, like this:
-   * <programlisting>
-   * gst_bus_set_sync_handler (bus, gst_bus_sync_signal_handler, yourdata);
-   * </programlisting>
+   * This signal will not be emitted by default, you have to call
+   * gst_bus_enable_sync_message_emission() before.
    */
   gst_bus_signals[SYNC_MESSAGE] =
       g_signal_new ("sync-message", G_TYPE_FROM_CLASS (klass),
@@ -297,7 +298,7 @@ gst_bus_new (void)
  * Post a message on the given bus. Ownership of the message
  * is taken by the bus.
  *
- * Returns: TRUE if the message could be posted, FALSE if the bus is flushing.
+ * Returns: %TRUE if the message could be posted, %FALSE if the bus is flushing.
  *
  * MT safe.
  */
@@ -314,6 +315,10 @@ gst_bus_post (GstBus * bus, GstMessage * message)
 
   GST_DEBUG_OBJECT (bus, "[msg %p] posting on bus %" GST_PTR_FORMAT, message,
       message);
+
+  /* check we didn't accidentally add a public flag that maps to same value */
+  g_assert (!GST_MINI_OBJECT_FLAG_IS_SET (message,
+          GST_MESSAGE_FLAG_ASYNC_DELIVERY));
 
   GST_OBJECT_LOCK (bus);
   /* check if the bus is flushing */
@@ -364,6 +369,8 @@ gst_bus_post (GstBus * bus, GstMessage * message)
       g_cond_init (cond);
       g_mutex_init (lock);
 
+      GST_MINI_OBJECT_FLAG_SET (message, GST_MESSAGE_FLAG_ASYNC_DELIVERY);
+
       GST_DEBUG_OBJECT (bus, "[msg %p] waiting for async delivery", message);
 
       /* now we lock the message mutex, send the message to the async
@@ -376,12 +383,18 @@ gst_bus_post (GstBus * bus, GstMessage * message)
 
       /* now block till the message is freed */
       g_cond_wait (cond, lock);
+
+      /* we acquired a new ref from gst_message_dispose() so we can clean up */
       g_mutex_unlock (lock);
 
       GST_DEBUG_OBJECT (bus, "[msg %p] delivered asynchronously", message);
 
+      GST_MINI_OBJECT_FLAG_UNSET (message, GST_MESSAGE_FLAG_ASYNC_DELIVERY);
+
       g_mutex_clear (lock);
       g_cond_clear (cond);
+
+      gst_message_unref (message);
       break;
     }
     default:
@@ -394,8 +407,8 @@ gst_bus_post (GstBus * bus, GstMessage * message)
 is_flushing:
   {
     GST_DEBUG_OBJECT (bus, "bus is flushing");
-    gst_message_unref (message);
     GST_OBJECT_UNLOCK (bus);
+    gst_message_unref (message);
 
     return FALSE;
   }
@@ -408,7 +421,7 @@ is_flushing:
  * Check if there are pending messages on the bus that
  * should be handled.
  *
- * Returns: TRUE if there are messages on the bus to be handled, FALSE
+ * Returns: %TRUE if there are messages on the bus to be handled, %FALSE
  * otherwise.
  *
  * MT safe.
@@ -433,7 +446,7 @@ gst_bus_have_pending (GstBus * bus)
  *
  * If @flushing, flush out and unref any messages queued in the bus. Releases
  * references to the message origin objects. Will flush future messages until
- * gst_bus_set_flushing() sets @flushing to #FALSE.
+ * gst_bus_set_flushing() sets @flushing to %FALSE.
  *
  * MT safe.
  */
@@ -441,6 +454,9 @@ void
 gst_bus_set_flushing (GstBus * bus, gboolean flushing)
 {
   GstMessage *message;
+  GList *message_list = NULL;
+
+  g_return_if_fail (GST_IS_BUS (bus));
 
   GST_OBJECT_LOCK (bus);
 
@@ -450,13 +466,15 @@ gst_bus_set_flushing (GstBus * bus, gboolean flushing)
     GST_DEBUG_OBJECT (bus, "set bus flushing");
 
     while ((message = gst_bus_pop (bus)))
-      gst_message_unref (message);
+      message_list = g_list_prepend (message_list, message);
   } else {
     GST_DEBUG_OBJECT (bus, "unset bus flushing");
     GST_OBJECT_FLAG_UNSET (bus, GST_BUS_FLUSHING);
   }
 
   GST_OBJECT_UNLOCK (bus);
+
+  g_list_free_full (message_list, (GDestroyNotify) gst_message_unref);
 }
 
 /**
@@ -473,10 +491,11 @@ gst_bus_set_flushing (GstBus * bus, gboolean flushing)
  * @timeout is #GST_CLOCK_TIME_NONE, this function will block forever until a
  * matching message was posted on the bus.
  *
- * Returns: (transfer full): a #GstMessage matching the filter in @types,
- *     or NULL if no matching message was found on the bus until the timeout
- *     expired. The message is taken from the bus and needs to be unreffed
- *     with gst_message_unref() after usage.
+ * Returns: (transfer full) (nullable): a #GstMessage matching the
+ *     filter in @types, or %NULL if no matching message was found on
+ *     the bus until the timeout expired. The message is taken from
+ *     the bus and needs to be unreffed with gst_message_unref() after
+ *     usage.
  *
  * MT safe.
  */
@@ -502,20 +521,41 @@ gst_bus_timed_pop_filtered (GstBus * bus, GstClockTime timeout,
         gst_atomic_queue_length (bus->priv->queue));
 
     while ((message = gst_atomic_queue_pop (bus->priv->queue))) {
-      if (bus->priv->poll)
-        gst_poll_read_control (bus->priv->poll);
+      if (bus->priv->poll) {
+        while (!gst_poll_read_control (bus->priv->poll)) {
+          if (errno == EWOULDBLOCK) {
+            /* Retry, this can happen if pushing to the queue has finished,
+             * popping here succeeded but writing control did not finish
+             * before we got to this line. */
+            /* Give other threads the chance to do something */
+            g_thread_yield ();
+            continue;
+          } else {
+            /* This is a real error and means that either the bus is in an
+             * inconsistent state, or the GstPoll is invalid. GstPoll already
+             * prints a critical warning about this, no need to do that again
+             * ourselves */
+            break;
+          }
+        }
+      }
 
       GST_DEBUG_OBJECT (bus, "got message %p, %s from %s, type mask is %u",
           message, GST_MESSAGE_TYPE_NAME (message),
           GST_MESSAGE_SRC_NAME (message), (guint) types);
       if ((GST_MESSAGE_TYPE (message) & types) != 0) {
-        /* exit the loop, we have a message */
-        goto beach;
-      } else {
-        GST_DEBUG_OBJECT (bus, "discarding message, does not match mask");
-        gst_message_unref (message);
-        message = NULL;
+        /* Extra check to ensure extended types don't get matched unless
+         * asked for */
+        if ((!GST_MESSAGE_TYPE_IS_EXTENDED (message))
+            || (types & GST_MESSAGE_EXTENDED)) {
+          /* exit the loop, we have a message */
+          goto beach;
+        }
       }
+
+      GST_DEBUG_OBJECT (bus, "discarding message, does not match mask");
+      gst_message_unref (message);
+      message = NULL;
     }
 
     /* no need to wait, exit loop */
@@ -569,10 +609,10 @@ beach:
  * #GST_CLOCK_TIME_NONE, this function will block forever until a message was
  * posted on the bus.
  *
- * Returns: (transfer full): the #GstMessage that is on the bus after the
- *     specified timeout or NULL if the bus is empty after the timeout expired.
- * The message is taken from the bus and needs to be unreffed with
- * gst_message_unref() after usage.
+ * Returns: (transfer full) (nullable): the #GstMessage that is on the
+ *     bus after the specified timeout or %NULL if the bus is empty
+ *     after the timeout expired.  The message is taken from the bus
+ *     and needs to be unreffed with gst_message_unref() after usage.
  *
  * MT safe.
  */
@@ -592,12 +632,13 @@ gst_bus_timed_pop (GstBus * bus, GstClockTime timeout)
  * Get a message matching @type from the bus.  Will discard all messages on
  * the bus that do not match @type and that have been posted before the first
  * message that does match @type.  If there is no message matching @type on
- * the bus, all messages will be discarded.
+ * the bus, all messages will be discarded. It is not possible to use message
+ * enums beyond #GST_MESSAGE_EXTENDED in the @events mask.
  *
- * Returns: (transfer full): the next #GstMessage matching @type that is on
- *     the bus, or NULL if the bus is empty or there is no message matching
- *     @type. The message is taken from the bus and needs to be unreffed with
- *     gst_message_unref() after usage.
+ * Returns: (transfer full) (nullable): the next #GstMessage matching
+ *     @type that is on the bus, or %NULL if the bus is empty or there
+ *     is no message matching @type. The message is taken from the bus
+ *     and needs to be unreffed with gst_message_unref() after usage.
  *
  * MT safe.
  */
@@ -616,9 +657,10 @@ gst_bus_pop_filtered (GstBus * bus, GstMessageType types)
  *
  * Get a message from the bus.
  *
- * Returns: (transfer full): the #GstMessage that is on the bus, or NULL if the
- *     bus is empty. The message is taken from the bus and needs to be unreffed
- *     with gst_message_unref() after usage.
+ * Returns: (transfer full) (nullable): the #GstMessage that is on the
+ *     bus, or %NULL if the bus is empty. The message is taken from
+ *     the bus and needs to be unreffed with gst_message_unref() after
+ *     usage.
  *
  * MT safe.
  */
@@ -638,8 +680,8 @@ gst_bus_pop (GstBus * bus)
  * on the bus' message queue. A reference is returned, and needs to be unreffed
  * by the caller.
  *
- * Returns: (transfer full): the #GstMessage that is on the bus, or NULL if the
- *     bus is empty.
+ * Returns: (transfer full) (nullable): the #GstMessage that is on the
+ *     bus, or %NULL if the bus is empty.
  *
  * MT safe.
  */
@@ -675,7 +717,7 @@ gst_bus_peek (GstBus * bus)
  * should handle messages asynchronously using the gst_bus watch and poll
  * functions.
  *
- * You cannot replace an existing sync_handler. You can pass NULL to this
+ * You cannot replace an existing sync_handler. You can pass %NULL to this
  * function, which will clear the existing handler.
  */
 void
@@ -797,8 +839,8 @@ gst_bus_source_finalize (GSource * source)
   GST_DEBUG_OBJECT (bus, "finalize source %p", source);
 
   GST_OBJECT_LOCK (bus);
-  if (bus->priv->watch_id == source)
-    bus->priv->watch_id = NULL;
+  if (bus->priv->signal_watch == source)
+    bus->priv->signal_watch = NULL;
   GST_OBJECT_UNLOCK (bus);
 
   gst_object_unref (bsource->bus);
@@ -850,13 +892,17 @@ gst_bus_add_watch_full_unlocked (GstBus * bus, gint priority,
   guint id;
   GSource *source;
 
-  if (bus->priv->watch_id) {
+  if (bus->priv->signal_watch) {
     GST_ERROR_OBJECT (bus,
         "Tried to add new watch while one was already there");
     return 0;
   }
 
   source = gst_bus_create_watch (bus);
+  if (!source) {
+    g_critical ("Creating bus watch failed");
+    return 0;
+  }
 
   if (priority != G_PRIORITY_DEFAULT)
     g_source_set_priority (source, priority);
@@ -868,7 +914,7 @@ gst_bus_add_watch_full_unlocked (GstBus * bus, gint priority,
   g_source_unref (source);
 
   if (id) {
-    bus->priv->watch_id = source;
+    bus->priv->signal_watch = source;
   }
 
   GST_DEBUG_OBJECT (bus, "New source %p with id %u", source, id);
@@ -876,7 +922,7 @@ gst_bus_add_watch_full_unlocked (GstBus * bus, gint priority,
 }
 
 /**
- * gst_bus_add_watch_full:
+ * gst_bus_add_watch_full: (rename-to gst_bus_add_watch)
  * @bus: a #GstBus to create the watch for.
  * @priority: The priority of the watch.
  * @func: A function to call when a message is received.
@@ -893,16 +939,18 @@ gst_bus_add_watch_full_unlocked (GstBus * bus, gint priority,
  * There can only be a single bus watch per bus, you must remove it before you
  * can set a new one.
  *
+ * The bus watch will only work if a GLib main loop is being run.
+ *
  * When @func is called, the message belongs to the caller; if you want to
  * keep a copy of it, call gst_message_ref() before leaving @func.
  *
- * The watch can be removed using g_source_remove() or by returning FALSE
- * from @func.
+ * The watch can be removed using gst_bus_remove_watch() or by returning %FALSE
+ * from @func. If the watch was added to the default main context it is also
+ * possible to remove the watch using g_source_remove().
  *
  * MT safe.
  *
- * Returns: The event source id.
- * Rename to: gst_bus_add_watch
+ * Returns: The event source id or 0 if @bus already got an event source.
  */
 guint
 gst_bus_add_watch_full (GstBus * bus, gint priority,
@@ -935,10 +983,13 @@ gst_bus_add_watch_full (GstBus * bus, gint priority,
  * There can only be a single bus watch per bus, you must remove it before you
  * can set a new one.
  *
- * The watch can be removed using g_source_remove() or by returning FALSE
- * from @func.
+ * The bus watch will only work if a GLib main loop is being run.
  *
- * Returns: The event source id.
+ * The watch can be removed using gst_bus_remove_watch() or by returning %FALSE
+ * from @func. If the watch was added to the default main context it is also
+ * possible to remove the watch using g_source_remove().
+ *
+ * Returns: The event source id or 0 if @bus already got an event source.
  *
  * MT safe.
  */
@@ -947,6 +998,45 @@ gst_bus_add_watch (GstBus * bus, GstBusFunc func, gpointer user_data)
 {
   return gst_bus_add_watch_full (bus, G_PRIORITY_DEFAULT, func,
       user_data, NULL);
+}
+
+/**
+ * gst_bus_remove_watch:
+ * @bus: a #GstBus to remove the watch from.
+ *
+ * Removes an installed bus watch from @bus.
+ *
+ * Returns: %TRUE on success or %FALSE if @bus has no event source.
+ *
+ * Since: 1.6
+ *
+ */
+gboolean
+gst_bus_remove_watch (GstBus * bus)
+{
+  GSource *watch_id;
+
+  g_return_val_if_fail (GST_IS_BUS (bus), FALSE);
+
+  GST_OBJECT_LOCK (bus);
+
+  if (bus->priv->signal_watch == NULL) {
+    GST_ERROR_OBJECT (bus, "no bus watch was present");
+    goto no_watch;
+  }
+
+  watch_id = bus->priv->signal_watch;
+
+  GST_OBJECT_UNLOCK (bus);
+
+  g_source_destroy (watch_id);
+
+  return TRUE;
+
+no_watch:
+  GST_OBJECT_UNLOCK (bus);
+
+  return FALSE;
 }
 
 typedef struct
@@ -1016,7 +1106,7 @@ poll_destroy_timeout (GstBusPollData * poll_data)
  * gst_bus_poll:
  * @bus: a #GstBus
  * @events: a mask of #GstMessageType, representing the set of message types to
- * poll for.
+ * poll for (note special handling of extended message types below)
  * @timeout: the poll timeout, as a #GstClockTime, or #GST_CLOCK_TIME_NONE to poll
  * indefinitely.
  *
@@ -1025,6 +1115,8 @@ poll_destroy_timeout (GstBusPollData * poll_data)
  * @timeout is negative, this function will block indefinitely.
  *
  * All messages not in @events will be popped off the bus and will be ignored.
+ * It is not possible to use message enums beyond #GST_MESSAGE_EXTENDED in the
+ * @events mask
  *
  * Because poll is implemented using the "message" signal enabled by
  * gst_bus_add_signal_watch(), calling gst_bus_poll() will cause the "message"
@@ -1052,9 +1144,10 @@ poll_destroy_timeout (GstBusPollData * poll_data)
  * better handled by setting up an asynchronous bus watch and doing things
  * from there.
  *
- * Returns: (transfer full): the message that was received, or NULL if the
- *     poll timed out. The message is taken from the bus and needs to be
- *     unreffed with gst_message_unref() after usage.
+ * Returns: (transfer full) (nullable): the message that was received,
+ *     or %NULL if the poll timed out. The message is taken from the
+ *     bus and needs to be unreffed with gst_message_unref() after
+ *     usage.
  */
 GstMessage *
 gst_bus_poll (GstBus * bus, GstMessageType events, GstClockTime timeout)
@@ -1062,6 +1155,8 @@ gst_bus_poll (GstBus * bus, GstMessageType events, GstClockTime timeout)
   GstBusPollData *poll_data;
   GstMessage *ret;
   gulong id;
+
+  g_return_val_if_fail (GST_IS_BUS (bus), NULL);
 
   poll_data = g_slice_new (GstBusPollData);
   poll_data->source_running = TRUE;
@@ -1111,7 +1206,7 @@ gst_bus_poll (GstBus * bus, GstMessageType events, GstClockTime timeout)
  * A helper #GstBusFunc that can be used to convert all asynchronous messages
  * into signals.
  *
- * Returns: TRUE
+ * Returns: %TRUE
  */
 gboolean
 gst_bus_async_signal_func (GstBus * bus, GstMessage * message, gpointer data)
@@ -1208,7 +1303,7 @@ void
 gst_bus_disable_sync_message_emission (GstBus * bus)
 {
   g_return_if_fail (GST_IS_BUS (bus));
-  g_return_if_fail (bus->priv->num_signal_watchers == 0);
+  g_return_if_fail (bus->priv->num_sync_message_emitters > 0);
 
   GST_OBJECT_LOCK (bus);
   bus->priv->num_sync_message_emitters--;
@@ -1250,13 +1345,12 @@ gst_bus_add_signal_watch_full (GstBus * bus, gint priority)
     goto done;
 
   /* this should not fail because the counter above takes care of it */
-  g_assert (bus->priv->signal_watch_id == 0);
+  g_assert (!bus->priv->signal_watch);
 
-  bus->priv->signal_watch_id =
-      gst_bus_add_watch_full_unlocked (bus, priority, gst_bus_async_signal_func,
+  gst_bus_add_watch_full_unlocked (bus, priority, gst_bus_async_signal_func,
       NULL, NULL);
 
-  if (G_UNLIKELY (bus->priv->signal_watch_id == 0))
+  if (G_UNLIKELY (!bus->priv->signal_watch))
     goto add_failed;
 
 done:
@@ -1311,7 +1405,7 @@ gst_bus_add_signal_watch (GstBus * bus)
 void
 gst_bus_remove_signal_watch (GstBus * bus)
 {
-  guint id = 0;
+  GSource *source = NULL;
 
   g_return_if_fail (GST_IS_BUS (bus));
 
@@ -1326,16 +1420,16 @@ gst_bus_remove_signal_watch (GstBus * bus)
   if (bus->priv->num_signal_watchers > 0)
     goto done;
 
-  id = bus->priv->signal_watch_id;
-  bus->priv->signal_watch_id = 0;
+  GST_DEBUG_OBJECT (bus, "removing signal watch %u",
+      g_source_get_id (bus->priv->signal_watch));
 
-  GST_DEBUG_OBJECT (bus, "removing signal watch %u", id);
+  source = bus->priv->signal_watch;
 
 done:
   GST_OBJECT_UNLOCK (bus);
 
-  if (id)
-    g_source_remove (id);
+  if (source)
+    g_source_destroy (source);
 
   return;
 

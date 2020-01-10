@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <gst/check/gstcheck.h>
@@ -919,6 +919,7 @@ GST_START_TEST (test_fake_eos)
   GstPad *sinkpad;
   GstFlowReturn res;
   GThread *thread;
+  GstSegment segment;
 
   pipeline = gst_pipeline_new ("pipeline");
 
@@ -931,6 +932,10 @@ GST_START_TEST (test_fake_eos)
 
   ret = gst_element_set_state (pipeline, GST_STATE_PLAYING);
   fail_unless (ret == GST_STATE_CHANGE_ASYNC, "no ASYNC state return");
+
+  gst_segment_init (&segment, GST_FORMAT_BYTES);
+  gst_pad_send_event (sinkpad, gst_event_new_stream_start ("test"));
+  gst_pad_send_event (sinkpad, gst_event_new_segment (&segment));
 
   /* push buffer of 100 seconds, since it has a timestamp of 0, it should be
    * rendered immediately and the chain function should return immediately */
@@ -1073,6 +1078,8 @@ GST_START_TEST (test_async_done)
   gst_bus_set_sync_handler (bus, (GstBusSyncHandler) async_done_func, sink,
       NULL);
 
+  gst_pad_send_event (sinkpad, gst_event_new_stream_start ("test"));
+
   /* make newsegment, this sets the position to 10sec when the buffer prerolls */
   GST_DEBUG ("sending segment");
   gst_segment_init (&segment, GST_FORMAT_TIME);
@@ -1114,14 +1121,16 @@ GST_START_TEST (test_async_done)
 
   /* join the thread. At this point we know the sink processed the last buffer
    * and the position should now be 210 seconds; the time of the last buffer we
-   * pushed */
+   * pushed. The element has no clock or base-time so it only reports the
+   * last seen timestamp of the buffer, it does not know how much of the buffer
+   * is consumed. */
   GST_DEBUG ("joining thread");
   g_thread_join (thread);
 
   gst_element_query_position (sink, GST_FORMAT_TIME, &position);
   GST_DEBUG ("last buffer position %" GST_TIME_FORMAT,
       GST_TIME_ARGS (position));
-  fail_unless (position == 310 * GST_SECOND, "position is wrong");
+  fail_unless (position == 210 * GST_SECOND, "position is wrong");
 
   gst_object_unref (sinkpad);
 

@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_LFO_CONTROL_SOURCE_H__
@@ -94,6 +94,10 @@ GType gst_lfo_waveform_get_type (void);
 /* Functions */
 
 GstControlSource *gst_lfo_control_source_new (void);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstLFOControlSource, gst_object_unref)
+#endif
 
 G_END_DECLS
 

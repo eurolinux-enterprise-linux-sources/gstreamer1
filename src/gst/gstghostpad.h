@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -122,6 +122,14 @@ gboolean         gst_ghost_pad_activate_mode_default  (GstPad * pad, GstObject *
 
 gboolean         gst_ghost_pad_internal_activate_mode_default   (GstPad * pad, GstObject * parent,
                                                                  GstPadMode mode, gboolean active);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstGhostPad, gst_object_unref)
+#endif
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstProxyPad, gst_object_unref)
+#endif
 
 G_END_DECLS
 

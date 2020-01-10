@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -38,7 +38,7 @@
  * might sometimes be needed to create a #GstTask manually if it is not related to
  * a #GstPad.
  *
- * Before the #GstTask can be run, it needs a #GStaticRecMutex that can be set with
+ * Before the #GstTask can be run, it needs a #GRecMutex that can be set with
  * gst_task_set_lock().
  *
  * The task can be started, paused and stopped with gst_task_start(), gst_task_pause()
@@ -64,8 +64,6 @@
  * name on Linux. Please note that the object name should be configured before the
  * task is started; changing the object name after the task has been started, has
  * no effect on the thread name.
- *
- * Last reviewed on 2012-03-29 (0.11.3)
  */
 
 #include "gst_private.h"
@@ -78,6 +76,10 @@
 
 #ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
+#endif
+
+#ifdef HAVE_PTHREAD_SETNAME_NP_WITHOUT_TID
+#include <pthread.h>
 #endif
 
 GST_DEBUG_CATEGORY_STATIC (task_debug);
@@ -109,6 +111,7 @@ struct _GstTaskPrivate
 };
 
 #ifdef _MSC_VER
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 struct _THREADNAME_INFO
@@ -160,6 +163,8 @@ init_klass_pool (GstTaskClass * klass)
     gst_object_unref (klass->pool);
   }
   klass->pool = gst_task_pool_new ();
+  /* Classes are never destroyed so this ref will never be dropped */
+  GST_OBJECT_FLAG_SET (klass->pool, GST_OBJECT_FLAG_MAY_BE_LEAKED);
   gst_task_pool_prepare (klass->pool, NULL);
   g_mutex_unlock (&pool_lock);
 }
@@ -197,6 +202,9 @@ gst_task_init (GstTask * task)
   g_mutex_lock (&pool_lock);
   task->priv->pool = gst_object_ref (klass->pool);
   g_mutex_unlock (&pool_lock);
+
+  /* clear floating flag */
+  gst_object_ref_sink (task);
 }
 
 static void
@@ -245,8 +253,19 @@ gst_task_configure_name (GstTask * task)
       GST_DEBUG_OBJECT (task, "Failed to set thread name");
   }
   GST_OBJECT_UNLOCK (task);
-#endif
-#ifdef _MSC_VER
+#elif defined(HAVE_PTHREAD_SETNAME_NP_WITHOUT_TID)
+  const gchar *name;
+
+  GST_OBJECT_LOCK (task);
+  name = GST_OBJECT_NAME (task);
+
+  /* set the thread name to something easily identifiable */
+  GST_DEBUG_OBJECT (task, "Setting thread name to '%s'", name);
+  if (pthread_setname_np (name))
+    GST_DEBUG_OBJECT (task, "Failed to set thread name");
+
+  GST_OBJECT_UNLOCK (task);
+#elif defined (_MSC_VER)
   const gchar *name;
   name = GST_OBJECT_NAME (task);
 
@@ -291,31 +310,30 @@ gst_task_func (GstTask * task)
   gst_task_configure_name (task);
 
   while (G_LIKELY (GET_TASK_STATE (task) != GST_TASK_STOPPED)) {
-    if (G_UNLIKELY (GET_TASK_STATE (task) == GST_TASK_PAUSED)) {
+    GST_OBJECT_LOCK (task);
+    while (G_UNLIKELY (GST_TASK_STATE (task) == GST_TASK_PAUSED)) {
+      g_rec_mutex_unlock (lock);
+
+      GST_TASK_SIGNAL (task);
+      GST_INFO_OBJECT (task, "Task going to paused");
+      GST_TASK_WAIT (task);
+      GST_INFO_OBJECT (task, "Task resume from paused");
+      GST_OBJECT_UNLOCK (task);
+      /* locking order.. */
+      g_rec_mutex_lock (lock);
       GST_OBJECT_LOCK (task);
-      while (G_UNLIKELY (GST_TASK_STATE (task) == GST_TASK_PAUSED)) {
-        g_rec_mutex_unlock (lock);
+    }
 
-        GST_TASK_SIGNAL (task);
-        GST_INFO_OBJECT (task, "Task going to paused");
-        GST_TASK_WAIT (task);
-        GST_INFO_OBJECT (task, "Task resume from paused");
-        GST_OBJECT_UNLOCK (task);
-        /* locking order.. */
-        g_rec_mutex_lock (lock);
-
-        GST_OBJECT_LOCK (task);
-        if (G_UNLIKELY (GET_TASK_STATE (task) == GST_TASK_STOPPED)) {
-          GST_OBJECT_UNLOCK (task);
-          goto done;
-        }
-      }
+    if (G_UNLIKELY (GET_TASK_STATE (task) == GST_TASK_STOPPED)) {
+      GST_OBJECT_UNLOCK (task);
+      break;
+    } else {
       GST_OBJECT_UNLOCK (task);
     }
 
     task->func (task->user_data);
   }
-done:
+
   g_rec_mutex_unlock (lock);
 
   GST_OBJECT_LOCK (task);
@@ -330,7 +348,7 @@ exit:
     GST_OBJECT_LOCK (task);
   }
   /* now we allow messing with the lock again by setting the running flag to
-   * FALSE. Together with the SIGNAL this is the sign for the _join() to
+   * %FALSE. Together with the SIGNAL this is the sign for the _join() to
    * complete.
    * Note that we still have not dropped the final ref on the task. We could
    * check here if there is a pending join() going on and drop the last ref
@@ -368,6 +386,9 @@ gst_task_cleanup_all (void)
   if ((klass = g_type_class_peek (GST_TYPE_TASK))) {
     init_klass_pool (klass);
   }
+
+  /* GstElement owns a GThreadPool */
+  _priv_gst_element_cleanup ();
 }
 
 /**
@@ -386,7 +407,7 @@ gst_task_cleanup_all (void)
  * This function will not yet create and start a thread. Use gst_task_start() or
  * gst_task_pause() to create and start the GThread.
  *
- * Before the task can be used, a #GStaticRecMutex must be configured using the
+ * Before the task can be used, a #GRecMutex must be configured using the
  * gst_task_set_lock() function. This lock will always be acquired while
  * @func is called.
  *
@@ -398,6 +419,8 @@ GstTask *
 gst_task_new (GstTaskFunction func, gpointer user_data, GDestroyNotify notify)
 {
   GstTask *task;
+
+  g_return_val_if_fail (func != NULL, NULL);
 
   task = g_object_newv (GST_TYPE_TASK, 0, NULL);
   task->func = func;
@@ -425,6 +448,8 @@ gst_task_new (GstTaskFunction func, gpointer user_data, GDestroyNotify notify)
 void
 gst_task_set_lock (GstTask * task, GRecMutex * mutex)
 {
+  g_return_if_fail (GST_IS_TASK (task));
+
   GST_OBJECT_LOCK (task);
   if (G_UNLIKELY (task->running))
     goto is_running;
@@ -780,9 +805,9 @@ gst_task_join (GstTask * task)
   gpointer id;
   GstTaskPool *pool = NULL;
 
-  priv = task->priv;
-
   g_return_val_if_fail (GST_IS_TASK (task), FALSE);
+
+  priv = task->priv;
 
   tself = g_thread_self ();
 

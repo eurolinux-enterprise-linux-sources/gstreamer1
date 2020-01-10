@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:element-fakesink
@@ -28,7 +28,7 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch audiotestsrc num-buffers=1000 ! fakesink sync=false
+ * gst-launch-1.0 audiotestsrc num-buffers=1000 ! fakesink sync=false
  * ]| Render 1000 audio buffers (of default size) as fast as possible.
  * </refsect2>
  */
@@ -37,6 +37,7 @@
 #  include "config.h"
 #endif
 
+#include "gstelements_private.h"
 #include "gstfakesink.h"
 #include <string.h>
 
@@ -167,10 +168,12 @@ gst_fake_sink_class_init (GstFakeSinkClass * klass)
   g_object_class_install_property (gobject_class, PROP_SILENT,
       g_param_spec_boolean ("silent", "Silent",
           "Don't produce last_message events", DEFAULT_SILENT,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING |
+          G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class, PROP_DUMP,
       g_param_spec_boolean ("dump", "Dump", "Dump buffer contents to stdout",
-          DEFAULT_DUMP, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+          DEFAULT_DUMP, G_PARAM_READWRITE | GST_PARAM_MUTABLE_PLAYING |
+          G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (gobject_class,
       PROP_CAN_ACTIVATE_PUSH,
       g_param_spec_boolean ("can-activate-push", "Can activate push",
@@ -221,8 +224,8 @@ gst_fake_sink_class_init (GstFakeSinkClass * klass)
       "Erik Walthinsen <omega@cse.ogi.edu>, "
       "Wim Taymans <wim@fluendo.com>, "
       "Mr. 'frag-me-more' Vanderwingo <wingo@fluendo.com>");
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&sinktemplate));
+
+  gst_element_class_add_static_pad_template (gstelement_class, &sinktemplate);
 
   gstelement_class->change_state =
       GST_DEBUG_FUNCPTR (gst_fake_sink_change_state);
@@ -428,7 +431,7 @@ gst_fake_sink_render (GstBaseSink * bsink, GstBuffer * buf)
 
   if (!sink->silent) {
     gchar dts_str[64], pts_str[64], dur_str[64];
-    gchar flag_str[100];
+    gchar *flag_str;
 
     GST_OBJECT_LOCK (sink);
     g_free (sink->last_message);
@@ -454,24 +457,7 @@ gst_fake_sink_render (GstBaseSink * bsink, GstBuffer * buf)
       g_strlcpy (dur_str, "none", sizeof (dur_str));
     }
 
-    {
-      const char *flag_list[15] = {
-        "", "", "", "", "live", "decode-only", "discont", "resync", "corrupted",
-        "marker", "header", "gap", "droppable", "delta-unit", "in-caps"
-      };
-      int i;
-      char *end = flag_str;
-      end[0] = '\0';
-      for (i = 0; i < G_N_ELEMENTS (flag_list); i++) {
-        if (GST_MINI_OBJECT_CAST (buf)->flags & (1 << i)) {
-          strcpy (end, flag_list[i]);
-          end += strlen (end);
-          end[0] = ' ';
-          end[1] = '\0';
-          end++;
-        }
-      }
-    }
+    flag_str = gst_buffer_get_flags_string (buf);
 
     sink->last_message =
         g_strdup_printf ("chain   ******* (%s:%s) (%u bytes, dts: %s, pts: %s"
@@ -481,6 +467,7 @@ gst_fake_sink_render (GstBaseSink * bsink, GstBuffer * buf)
         (guint) gst_buffer_get_size (buf), dts_str, pts_str,
         dur_str, GST_BUFFER_OFFSET (buf), GST_BUFFER_OFFSET_END (buf),
         GST_MINI_OBJECT_CAST (buf)->flags, flag_str, buf);
+    g_free (flag_str);
     GST_OBJECT_UNLOCK (sink);
 
     gst_fake_sink_notify_last_message (sink);
@@ -492,9 +479,10 @@ gst_fake_sink_render (GstBaseSink * bsink, GstBuffer * buf)
   if (sink->dump) {
     GstMapInfo info;
 
-    gst_buffer_map (buf, &info, GST_MAP_READ);
-    gst_util_dump_mem (info.data, info.size);
-    gst_buffer_unmap (buf, &info);
+    if (gst_buffer_map (buf, &info, GST_MAP_READ)) {
+      gst_util_dump_mem (info.data, info.size);
+      gst_buffer_unmap (buf, &info);
+    }
   }
   if (sink->num_buffers_left == 0)
     goto eos;

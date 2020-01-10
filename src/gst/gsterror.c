@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -23,7 +23,7 @@
  * @see_also: #GstMessage
  *
  * GStreamer elements can throw non-fatal warnings and fatal errors.
- * Higher-level elements and applications can programatically filter
+ * Higher-level elements and applications can programmatically filter
  * the ones they are interested in or can recover from,
  * and have a default handler handle the rest of them.
  *
@@ -80,7 +80,7 @@
  *     currently provided should be enough.  If you find your type of error
  *     does not fit the current codes, you should use FAILED.</para></listitem>
  *   <listitem><para>Don't provide a message if the default one suffices.
- *     this keeps messages more uniform.  Use (NULL) - not forgetting the
+ *     this keeps messages more uniform.  Use (%NULL) - not forgetting the
  *     parentheses.</para></listitem>
  *   <listitem><para>If you do supply a custom message, it should be
  *     marked for translation.  The message should start with a capital
@@ -89,22 +89,20 @@
  *     A user interface will present this message as the first thing a user
  *     sees.  Details, technical info, ... should go in the debug string.
  *   </para></listitem>
- *   <listitem><para>The debug string can be as you like.  Again, use (NULL)
+ *   <listitem><para>The debug string can be as you like.  Again, use (%NULL)
  *     if there's nothing to add - file and line number will still be
  *     passed.  #GST_ERROR_SYSTEM can be used as a shortcut to give
  *     debug information on a system call error.</para></listitem>
  * </itemizedlist>
- *
- * Last reviewed on 2006-09-15 (0.10.10)
  */
 
-/* FIXME 0.11: the entire error system needs an overhaul - it's not very
+/* FIXME 2.0: the entire error system needs an overhaul - it's not very
  * useful the way it is. Also, we need to be able to specify additional
  * 'details' for errors (e.g. disk/file/resource error -> out-of-space; or
  * put the url/filename/device name that caused the error somewhere)
  * without having to add enums for every little thing.
  *
- * FIXME 0.11: get rid of GST_{CORE,LIBRARY,RESOURCE,STREAM}_ERROR_NUM_ERRORS.
+ * FIXME 2.0: get rid of GST_{CORE,LIBRARY,RESOURCE,STREAM}_ERROR_NUM_ERRORS.
  * Maybe also replace _quark() functions with g_quark_from_static_string()?
  */
 #ifdef HAVE_CONFIG_H
@@ -223,6 +221,8 @@ gst_error_get_resource_error (GstResourceError code)
       return _("Could not get/set settings from/on resource.");
     case GST_RESOURCE_ERROR_NO_SPACE_LEFT:
       return _("No space left on the resource.");
+    case GST_RESOURCE_ERROR_NOT_AUTHORIZED:
+      return _("Not authorized to access resource.");
     case GST_RESOURCE_ERROR_NUM_ERRORS:
     default:
       break;

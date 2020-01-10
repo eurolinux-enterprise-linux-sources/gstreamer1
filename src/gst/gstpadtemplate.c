@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -51,12 +51,10 @@
  *
  * A padtemplate can be used to create a pad (see gst_pad_new_from_template()
  * or gst_pad_new_from_static_template ()) or to add to an element class
- * (see gst_element_class_add_pad_template ()).
+ * (see gst_element_class_add_static_pad_template ()).
  *
  * The following code example shows the code to create a pad from a padtemplate.
- * <example>
- * <title>Create a pad from a padtemplate</title>
- *   <programlisting>
+ * |[<!-- language="C" -->
  *   GstStaticPadTemplate my_template =
  *   GST_STATIC_PAD_TEMPLATE (
  *     "sink",          // the name of the pad
@@ -74,25 +72,19 @@
  *     pad = gst_pad_new_from_static_template (&amp;my_template, "sink");
  *     ...
  *   }
- *   </programlisting>
- * </example>
+ * ]|
  *
  * The following example shows you how to add the padtemplate to an
  * element class, this is usually done in the class_init of the class:
- * <informalexample>
- *   <programlisting>
+ * |[<!-- language="C" -->
  *   static void
  *   my_element_class_init (GstMyElementClass *klass)
  *   {
  *     GstElementClass *gstelement_class = GST_ELEMENT_CLASS (klass);
  *
- *     gst_element_class_add_pad_template (gstelement_class,
- *         gst_static_pad_template_get (&amp;my_template));
+ *     gst_element_class_add_static_pad_template (gstelement_class, &amp;my_template);
  *   }
- *   </programlisting>
- * </informalexample>
- *
- * Last reviewed on 2006-02-14 (0.10.3)
+ * ]|
  */
 
 #include "gst_private.h"
@@ -208,6 +200,8 @@ gst_pad_template_class_init (GstPadTemplateClass * klass)
 static void
 gst_pad_template_init (GstPadTemplate * templ)
 {
+  /* GstPadTemplate objects are usually leaked */
+  GST_OBJECT_FLAG_SET (templ, GST_OBJECT_FLAG_MAY_BE_LEAKED);
 }
 
 static void
@@ -403,6 +397,11 @@ gst_pad_template_set_property (GObject * object, guint prop_id,
       break;
     case PROP_CAPS:
       GST_PAD_TEMPLATE_CAPS (object) = g_value_dup_boxed (value);
+      if (GST_PAD_TEMPLATE_CAPS (object) != NULL) {
+        /* GstPadTemplate are usually leaked so are their caps */
+        GST_MINI_OBJECT_FLAG_SET (GST_PAD_TEMPLATE_CAPS (object),
+            GST_MINI_OBJECT_FLAG_MAY_BE_LEAKED);
+      }
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);

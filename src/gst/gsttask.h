@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_TASK_H__
@@ -193,6 +193,10 @@ gboolean        gst_task_stop           (GstTask *task);
 gboolean        gst_task_pause          (GstTask *task);
 
 gboolean        gst_task_join           (GstTask *task);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstTask, gst_object_unref)
+#endif
 
 G_END_DECLS
 

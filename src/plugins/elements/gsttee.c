@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -37,9 +37,10 @@
  * <refsect2>
  * <title>Example launch line</title>
  * |[
- * gst-launch filesrc location=song.ogg ! decodebin2 ! tee name=t ! queue ! autoaudiosink t. ! queue ! audioconvert ! goom ! videoconvert ! autovideosink
- * ]| Play a song.ogg from local dir and render visualisations using the goom
- * element.
+ * gst-launch-1.0 filesrc location=song.ogg ! decodebin ! tee name=t ! queue ! audioconvert ! audioresample ! autoaudiosink t. ! queue ! audioconvert ! goom ! videoconvert ! autovideosink
+ * ]| Play song.ogg audio file which must be in the current working directory
+ * and render visualisations using the goom element (this can be easier done
+ * using the playbin element, this is just an example pipeline).
  * </refsect2>
  */
 
@@ -51,6 +52,7 @@
 #include "gst/glib-compat-private.h"
 
 #include <string.h>
+#include <stdio.h>
 
 static GstStaticPadTemplate sinktemplate = GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
@@ -78,15 +80,12 @@ gst_tee_pull_mode_get_type (void)
   return type;
 }
 
-/* lock to protect request pads from being removed while downstream */
-#define GST_TEE_DYN_LOCK(tee) g_mutex_lock (&(tee)->dyn_lock)
-#define GST_TEE_DYN_UNLOCK(tee) g_mutex_unlock (&(tee)->dyn_lock)
-
 #define DEFAULT_PROP_NUM_SRC_PADS	0
 #define DEFAULT_PROP_HAS_CHAIN		TRUE
 #define DEFAULT_PROP_SILENT		TRUE
 #define DEFAULT_PROP_LAST_MESSAGE	NULL
 #define DEFAULT_PULL_MODE		GST_TEE_PULL_MODE_NEVER
+#define DEFAULT_PROP_ALLOW_NOT_LINKED	FALSE
 
 enum
 {
@@ -97,10 +96,10 @@ enum
   PROP_LAST_MESSAGE,
   PROP_PULL_MODE,
   PROP_ALLOC_PAD,
+  PROP_ALLOW_NOT_LINKED,
 };
 
-static GstStaticPadTemplate tee_src_template =
-GST_STATIC_PAD_TEMPLATE ("src_%u",
+static GstStaticPadTemplate src_template = GST_STATIC_PAD_TEMPLATE ("src_%u",
     GST_PAD_SRC,
     GST_PAD_REQUEST,
     GST_STATIC_CAPS_ANY);
@@ -135,6 +134,7 @@ struct _GstTeePad
 {
   GstPad parent;
 
+  guint index;
   gboolean pushed;
   GstFlowReturn result;
   gboolean removed;
@@ -218,9 +218,9 @@ gst_tee_finalize (GObject * object)
 
   tee = GST_TEE (object);
 
-  g_free (tee->last_message);
+  g_hash_table_unref (tee->pad_indexes);
 
-  g_mutex_clear (&tee->dyn_lock);
+  g_free (tee->last_message);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -262,20 +262,35 @@ gst_tee_class_init (GstTeeClass * klass)
           DEFAULT_PULL_MODE,
           G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
   pspec_alloc_pad = g_param_spec_object ("alloc-pad", "Allocation Src Pad",
-      "The pad used for gst_pad_alloc_buffer", GST_TYPE_PAD,
+      "The pad ALLOCATION queries will be proxied to (unused)", GST_TYPE_PAD,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (gobject_class, PROP_ALLOC_PAD,
       pspec_alloc_pad);
+
+  /**
+   * GstTee:allow-not-linked
+   *
+   * This property makes sink pad return GST_FLOW_OK even if there are no
+   * source pads or any of them is linked.
+   *
+   * This is useful to avoid errors when you have a dynamic pipeline and during
+   * a reconnection you can have all the pads unlinked or removed.
+   *
+   * Since: 1.6
+   */
+  g_object_class_install_property (gobject_class, PROP_ALLOW_NOT_LINKED,
+      g_param_spec_boolean ("allow-not-linked", "Allow not linked",
+          "Return GST_FLOW_OK even if there are no source pads or they are "
+          "all unlinked", DEFAULT_PROP_ALLOW_NOT_LINKED,
+          G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   gst_element_class_set_static_metadata (gstelement_class,
       "Tee pipe fitting",
       "Generic",
       "1-to-N pipe fitting",
       "Erik Walthinsen <omega@cse.ogi.edu>, " "Wim Taymans <wim@fluendo.com>");
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&sinktemplate));
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&tee_src_template));
+  gst_element_class_add_static_pad_template (gstelement_class, &sinktemplate);
+  gst_element_class_add_static_pad_template (gstelement_class, &src_template);
 
   gstelement_class->request_new_pad =
       GST_DEBUG_FUNCPTR (gst_tee_request_new_pad);
@@ -285,8 +300,6 @@ gst_tee_class_init (GstTeeClass * klass)
 static void
 gst_tee_init (GstTee * tee)
 {
-  g_mutex_init (&tee->dyn_lock);
-
   tee->sinkpad = gst_pad_new_from_static_template (&sinktemplate, "sink");
   tee->sink_mode = GST_PAD_MODE_NONE;
 
@@ -302,6 +315,8 @@ gst_tee_init (GstTee * tee)
   GST_OBJECT_FLAG_SET (tee->sinkpad, GST_PAD_FLAG_PROXY_CAPS);
   gst_element_add_pad (GST_ELEMENT (tee), tee->sinkpad);
 
+  tee->pad_indexes = g_hash_table_new (NULL, NULL);
+
   tee->last_message = NULL;
 }
 
@@ -315,32 +330,60 @@ static gboolean
 forward_sticky_events (GstPad * pad, GstEvent ** event, gpointer user_data)
 {
   GstPad *srcpad = GST_PAD_CAST (user_data);
+  GstFlowReturn ret;
 
-  gst_pad_push_event (srcpad, gst_event_ref (*event));
+  ret = gst_pad_store_sticky_event (srcpad, *event);
+  if (ret != GST_FLOW_OK) {
+    GST_DEBUG_OBJECT (srcpad, "storing sticky event %p (%s) failed: %s", *event,
+        GST_EVENT_TYPE_NAME (*event), gst_flow_get_name (ret));
+  }
 
   return TRUE;
 }
 
 static GstPad *
 gst_tee_request_new_pad (GstElement * element, GstPadTemplate * templ,
-    const gchar * unused, const GstCaps * caps)
+    const gchar * name_templ, const GstCaps * caps)
 {
   gchar *name;
   GstPad *srcpad;
   GstTee *tee;
   GstPadMode mode;
   gboolean res;
+  guint index = 0;
 
   tee = GST_TEE (element);
 
   GST_DEBUG_OBJECT (tee, "requesting pad");
 
   GST_OBJECT_LOCK (tee);
-  name = g_strdup_printf ("src_%u", tee->pad_counter++);
+
+  if (name_templ && sscanf (name_templ, "src_%u", &index) == 1) {
+    GST_LOG_OBJECT (element, "name: %s (index %d)", name_templ, index);
+    if (g_hash_table_contains (tee->pad_indexes, GUINT_TO_POINTER (index))) {
+      GST_ERROR_OBJECT (element, "pad name %s is not unique", name_templ);
+      GST_OBJECT_UNLOCK (tee);
+      return NULL;
+    }
+    if (index >= tee->next_pad_index)
+      tee->next_pad_index = index + 1;
+  } else {
+    index = tee->next_pad_index;
+
+    while (g_hash_table_contains (tee->pad_indexes, GUINT_TO_POINTER (index)))
+      index++;
+
+    tee->next_pad_index = index + 1;
+  }
+
+  g_hash_table_insert (tee->pad_indexes, GUINT_TO_POINTER (index), NULL);
+
+  name = g_strdup_printf ("src_%u", index);
 
   srcpad = GST_PAD_CAST (g_object_new (GST_TYPE_TEE_PAD,
           "name", name, "direction", templ->direction, "template", templ,
           NULL));
+  GST_TEE_PAD_CAST (srcpad)->index = index;
   g_free (name);
 
   mode = tee->sink_mode;
@@ -367,9 +410,9 @@ gst_tee_request_new_pad (GstElement * element, GstPadTemplate * templ,
   gst_pad_set_query_function (srcpad, GST_DEBUG_FUNCPTR (gst_tee_src_query));
   gst_pad_set_getrange_function (srcpad,
       GST_DEBUG_FUNCPTR (gst_tee_src_get_range));
+  GST_OBJECT_FLAG_SET (srcpad, GST_PAD_FLAG_PROXY_CAPS);
   /* Forward sticky events to the new srcpad */
   gst_pad_sticky_events_foreach (tee->sinkpad, forward_sticky_events, srcpad);
-  GST_OBJECT_FLAG_SET (srcpad, GST_PAD_FLAG_PROXY_CAPS);
   gst_element_add_pad (GST_ELEMENT_CAST (tee), srcpad);
 
   return srcpad;
@@ -399,14 +442,14 @@ gst_tee_release_pad (GstElement * element, GstPad * pad)
 {
   GstTee *tee;
   gboolean changed = FALSE;
+  guint index;
 
   tee = GST_TEE (element);
 
   GST_DEBUG_OBJECT (tee, "releasing pad");
 
-  /* wait for pending pad_alloc to finish */
-  GST_TEE_DYN_LOCK (tee);
   GST_OBJECT_LOCK (tee);
+  index = GST_TEE_PAD_CAST (pad)->index;
   /* mark the pad as removed so that future pad_alloc fails with NOT_LINKED. */
   GST_TEE_PAD_CAST (pad)->removed = TRUE;
   if (tee->allocpad == pad) {
@@ -419,13 +462,16 @@ gst_tee_release_pad (GstElement * element, GstPad * pad)
   gst_element_remove_pad (GST_ELEMENT_CAST (tee), pad);
 
   gst_pad_set_active (pad, FALSE);
-  GST_TEE_DYN_UNLOCK (tee);
 
   gst_object_unref (pad);
 
   if (changed) {
     gst_tee_notify_alloc_pad (tee);
   }
+
+  GST_OBJECT_LOCK (tee);
+  g_hash_table_remove (tee->pad_indexes, GUINT_TO_POINTER (index));
+  GST_OBJECT_UNLOCK (tee);
 }
 
 static void
@@ -457,6 +503,9 @@ gst_tee_set_property (GObject * object, guint prop_id, const GValue * value,
       GST_OBJECT_UNLOCK (pad);
       break;
     }
+    case PROP_ALLOW_NOT_LINKED:
+      tee->allow_not_linked = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -489,6 +538,9 @@ gst_tee_get_property (GObject * object, guint prop_id, GValue * value,
       break;
     case PROP_ALLOC_PAD:
       g_value_set_object (value, tee->allocpad);
+      break;
+    case PROP_ALLOW_NOT_LINKED:
+      g_value_set_boolean (value, tee->allow_not_linked);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -591,6 +643,9 @@ gst_tee_handle_data (GstTee * tee, gpointer data, gboolean is_list)
   if (!pads->next) {
     GstPad *pad = GST_PAD_CAST (pads->data);
 
+    /* Keep another ref around, a pad probe
+     * might release and destroy the pad */
+    gst_object_ref (pad);
     GST_OBJECT_UNLOCK (tee);
 
     if (pad == tee->pull_pad) {
@@ -600,6 +655,16 @@ gst_tee_handle_data (GstTee * tee, gpointer data, gboolean is_list)
     } else {
       ret = gst_pad_push (pad, GST_BUFFER_CAST (data));
     }
+
+    if (GST_TEE_PAD_CAST (pad)->removed)
+      ret = GST_FLOW_NOT_LINKED;
+
+    if (ret == GST_FLOW_NOT_LINKED && tee->allow_not_linked) {
+      ret = GST_FLOW_OK;
+    }
+
+    gst_object_unref (pad);
+
     return ret;
   }
 
@@ -607,7 +672,11 @@ gst_tee_handle_data (GstTee * tee, gpointer data, gboolean is_list)
   g_list_foreach (pads, (GFunc) clear_pads, tee);
 
 restart:
-  cret = GST_FLOW_NOT_LINKED;
+  if (tee->allow_not_linked) {
+    cret = GST_FLOW_OK;
+  } else {
+    cret = GST_FLOW_NOT_LINKED;
+  }
   pads = GST_ELEMENT_CAST (tee)->srcpads;
   cookie = GST_ELEMENT_CAST (tee)->pads_cookie;
 
@@ -621,12 +690,12 @@ restart:
       gst_object_ref (pad);
       GST_OBJECT_UNLOCK (tee);
 
-      GST_LOG_OBJECT (tee, "Starting to push %s %p",
+      GST_LOG_OBJECT (pad, "Starting to push %s %p",
           is_list ? "list" : "buffer", data);
 
       ret = gst_tee_do_push (tee, pad, data, is_list);
 
-      GST_LOG_OBJECT (tee, "Pushing item %p yielded result %s", data,
+      GST_LOG_OBJECT (pad, "Pushing item %p yielded result %s", data,
           gst_flow_get_name (ret));
 
       GST_OBJECT_LOCK (tee);
@@ -634,10 +703,11 @@ restart:
       GST_TEE_PAD_CAST (pad)->pushed = TRUE;
       GST_TEE_PAD_CAST (pad)->result = ret;
       gst_object_unref (pad);
+      pad = NULL;
     } else {
       /* already pushed, use previous return value */
       ret = GST_TEE_PAD_CAST (pad)->result;
-      GST_LOG_OBJECT (tee, "pad already pushed with %s",
+      GST_LOG_OBJECT (pad, "pad already pushed with %s",
           gst_flow_get_name (ret));
     }
 
@@ -673,13 +743,23 @@ restart:
   /* ERRORS */
 no_pads:
   {
-    GST_DEBUG_OBJECT (tee, "there are no pads, return not-linked");
-    ret = GST_FLOW_NOT_LINKED;
-    goto error;
+    if (tee->allow_not_linked) {
+      GST_DEBUG_OBJECT (tee, "there are no pads, dropping %s",
+          is_list ? "buffer-list" : "buffer");
+      ret = GST_FLOW_OK;
+    } else {
+      GST_DEBUG_OBJECT (tee, "there are no pads, return not-linked");
+      ret = GST_FLOW_NOT_LINKED;
+    }
+    goto end;
   }
 error:
   {
     GST_DEBUG_OBJECT (tee, "received error %s", gst_flow_get_name (ret));
+    goto end;
+  }
+end:
+  {
     GST_OBJECT_UNLOCK (tee);
     gst_mini_object_unref (GST_MINI_OBJECT_CAST (data));
     return ret;
@@ -891,8 +971,10 @@ gst_tee_pull_eos (GstTee * tee)
   GstIterator *iter;
 
   iter = gst_element_iterate_src_pads (GST_ELEMENT (tee));
-  gst_iterator_foreach (iter, (GstIteratorForeachFunction) gst_tee_push_eos,
-      tee);
+  while (gst_iterator_foreach (iter,
+          (GstIteratorForeachFunction) gst_tee_push_eos,
+          tee) == GST_ITERATOR_RESYNC)
+    gst_iterator_resync (iter);
   gst_iterator_free (iter);
 }
 

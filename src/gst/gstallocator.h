@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -24,6 +24,7 @@
 #define __GST_ALLOCATOR_H__
 
 #include <gst/gstmemory.h>
+#include <gst/gstobject.h>
 
 G_BEGIN_DECLS
 
@@ -92,13 +93,15 @@ typedef enum {
 
 /**
  * GstAllocator:
- * @object: parent structure
- * @mem_type: the memory type this allocator provides
  * @mem_map: the implementation of the GstMemoryMapFunction
  * @mem_unmap: the implementation of the GstMemoryUnmapFunction
  * @mem_copy: the implementation of the GstMemoryCopyFunction
  * @mem_share: the implementation of the GstMemoryShareFunction
  * @mem_is_span: the implementation of the GstMemoryIsSpanFunction
+ * @mem_map_full: the implementation of the GstMemoryMapFullFunction.
+ *      Will be used instead of @mem_map if present. (Since 1.6)
+ * @mem_unmap_full: the implementation of the GstMemoryUnmapFullFunction.
+ *      Will be used instead of @mem_unmap if present. (Since 1.6)
  *
  * The #GstAllocator is used to create new memory.
  */
@@ -106,24 +109,37 @@ struct _GstAllocator
 {
   GstObject  object;
 
-  const gchar              *mem_type;
+  const gchar               *mem_type;
 
-  GstMemoryMapFunction      mem_map;
-  GstMemoryUnmapFunction    mem_unmap;
+  /*< public >*/
+  GstMemoryMapFunction       mem_map;
+  GstMemoryUnmapFunction     mem_unmap;
 
-  GstMemoryCopyFunction     mem_copy;
-  GstMemoryShareFunction    mem_share;
-  GstMemoryIsSpanFunction   mem_is_span;
+  GstMemoryCopyFunction      mem_copy;
+  GstMemoryShareFunction     mem_share;
+  GstMemoryIsSpanFunction    mem_is_span;
+
+  GstMemoryMapFullFunction   mem_map_full;
+  GstMemoryUnmapFullFunction mem_unmap_full;
 
   /*< private >*/
-  gpointer _gst_reserved[GST_PADDING];
+  gpointer _gst_reserved[GST_PADDING - 2];
 
   GstAllocatorPrivate *priv;
 };
 
+/**
+ * GstAllocatorClass:
+ * @object_class:  Object parent class
+ * @alloc: implementation that acquires memory
+ * @free: implementation that releases memory
+ *
+ * The #GstAllocator is used to create new memory.
+ */
 struct _GstAllocatorClass {
   GstObjectClass object_class;
 
+  /*< public >*/
   GstMemory *  (*alloc)      (GstAllocator *allocator, gsize size,
                               GstAllocationParams *params);
   void         (*free)       (GstAllocator *allocator, GstMemory *memory);
@@ -153,6 +169,10 @@ void           gst_allocator_free            (GstAllocator * allocator, GstMemor
 GstMemory *    gst_memory_new_wrapped  (GstMemoryFlags flags, gpointer data, gsize maxsize,
                                         gsize offset, gsize size, gpointer user_data,
                                         GDestroyNotify notify);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstAllocationParams, gst_allocation_params_free)
+#endif
 
 G_END_DECLS
 

@@ -13,15 +13,18 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_DATE_TIME_H__
 #define __GST_DATE_TIME_H__
 
+#include <gst/gstconfig.h>
+
 #include <time.h>
 #include <glib.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
@@ -32,9 +35,23 @@ G_BEGIN_DECLS
  * information. It currently supports ranges from 0001-01-01 to
  * 9999-12-31 in the Gregorian proleptic calendar.
  *
- * Use the acessor functions to get the stored values.
+ * Use the accessor functions to get the stored values.
  */
 typedef struct _GstDateTime GstDateTime;
+
+GST_EXPORT GType _gst_date_time_type;
+
+/**
+ * GST_TYPE_DATE_TIME:
+ *
+ * a boxed #GValue type for #GstDateTime that represents a date and time.
+ *
+ * Returns: the #GType of GstDateTime
+ */
+
+#define GST_TYPE_DATE_TIME (_gst_date_time_type)
+
+GType           gst_date_time_get_type (void);
 
 /* query which fields are set */
 
@@ -100,6 +117,10 @@ GstDateTime *   gst_date_time_new_from_g_date_time (GDateTime * dt);
 GstDateTime *   gst_date_time_ref                (GstDateTime * datetime);
 
 void            gst_date_time_unref              (GstDateTime * datetime);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstDateTime, gst_date_time_unref)
+#endif
 
 G_END_DECLS
 

@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -52,7 +52,7 @@ G_BEGIN_DECLS
  * @GST_PAD_ALWAYS: the pad is always available
  * @GST_PAD_SOMETIMES: the pad will become available depending on the media stream
  * @GST_PAD_REQUEST: the pad is only available on request with
- *  gst_element_get_request_pad().
+ *  gst_element_request_pad().
  *
  * Indicates when this pad will become available.
  */
@@ -187,6 +187,10 @@ GstCaps*		gst_static_pad_template_get_caps	(GstStaticPadTemplate *templ);
 GstCaps*		gst_pad_template_get_caps		(GstPadTemplate *templ);
 
 void                    gst_pad_template_pad_created            (GstPadTemplate * templ, GstPad * pad);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstPadTemplate, gst_object_unref)
+#endif
 
 G_END_DECLS
 

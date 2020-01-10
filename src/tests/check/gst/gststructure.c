@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -174,6 +174,20 @@ GST_START_TEST (test_from_string)
   ASSERT_WARNING (structure = gst_structure_from_string (s, NULL));
   fail_if (structure == NULL, "Could not get structure from string %s", s);
   gst_structure_free (structure);
+
+  /* make sure we handle \ as last character in various things, run with valgrind */
+  s = "foo,test=\"foobar\\";
+  structure = gst_structure_from_string (s, NULL);
+  fail_unless (structure == NULL);
+  s = "\\";
+  structure = gst_structure_from_string (s, NULL);
+  fail_unless (structure == NULL);
+  s = "foobar,test\\";
+  structure = gst_structure_from_string (s, NULL);
+  fail_unless (structure == NULL);
+  s = "foobar,test=(string)foo\\";
+  structure = gst_structure_from_string (s, NULL);
+  fail_unless (structure == NULL);
 }
 
 GST_END_TEST;
@@ -210,7 +224,7 @@ GST_START_TEST (test_to_from_string)
 
   fail_unless (st2 != NULL);
 
-  /* need to put stuctures into caps to compare */
+  /* need to put structures into caps to compare */
   caps1 = gst_caps_new_empty ();
   gst_caps_append_structure (caps1, st1);
   caps2 = gst_caps_new_empty ();
@@ -228,12 +242,54 @@ GST_START_TEST (test_to_from_string)
 
 GST_END_TEST;
 
+/* Added to make sure taglists are properly serialized/deserialized after bug
+ * https://bugzilla.gnome.org/show_bug.cgi?id=733131 */
+GST_START_TEST (test_to_from_string_tag_event)
+{
+  GstEvent *tagevent;
+  GstTagList *taglist;
+  GstStructure *st1, *st2;
+  gchar *str;
+
+  /* empty taglist */
+  taglist = gst_tag_list_new_empty ();
+  tagevent = gst_event_new_tag (taglist);
+
+  st1 = (GstStructure *) gst_event_get_structure (tagevent);
+  str = gst_structure_to_string (st1);
+  fail_unless (str != NULL);
+
+  st2 = gst_structure_new_from_string (str);
+  fail_unless (st2 != NULL);
+  fail_unless (gst_structure_is_equal (st1, st2));
+  gst_event_unref (tagevent);
+  gst_structure_free (st2);
+  g_free (str);
+
+  /* taglist with data */
+  taglist = gst_tag_list_new ("title", "TEST TITLE", NULL);
+  tagevent = gst_event_new_tag (taglist);
+
+  st1 = (GstStructure *) gst_event_get_structure (tagevent);
+  str = gst_structure_to_string (st1);
+  fail_unless (str != NULL);
+
+  st2 = gst_structure_new_from_string (str);
+  fail_unless (st2 != NULL);
+  fail_unless (gst_structure_is_equal (st1, st2));
+  gst_event_unref (tagevent);
+  gst_structure_free (st2);
+  g_free (str);
+}
+
+GST_END_TEST;
+
 GST_START_TEST (test_complete_structure)
 {
   GstStructure *structure;
   const gchar *s;
 
-  s = "GstEventSeek, rate=(double)1, format=(GstFormat)GST_FORMAT_TIME, flags=(GstSeekFlags)GST_SEEK_FLAGS_NONE, start_type=(GstSeekType)GST_SEEK_TYPE_SET, start=(gint64)1000000000, stop_type=(GstSeekType)GST_SEEK_TYPE_NONE, stop=(gint64)0";
+  s = "GstEventSeek, rate=(double)1, format=(GstFormat)GST_FORMAT_TIME, flags=(GstSeekFlags)GST_SEEK_FLAG_NONE, start_type=(GstSeekType)GST_SEEK_TYPE_SET, start=(gint64)1000000000, stop_type=(GstSeekType)GST_SEEK_TYPE_NONE, stop=(gint64)0";
   structure = gst_structure_from_string (s, NULL);
   fail_if (structure == NULL, "Could not get structure from string %s", s);
   /* FIXME: TODO: add checks for correct serialization of members ? */
@@ -258,7 +314,7 @@ GST_START_TEST (test_string_properties)
 
   fail_unless (st2 != NULL);
 
-  /* need to put stuctures into caps to compare */
+  /* need to put structures into caps to compare */
   caps1 = gst_caps_new_empty ();
   gst_caps_append_structure (caps1, st1);
   caps2 = gst_caps_new_empty ();
@@ -284,24 +340,26 @@ GST_START_TEST (test_structure_new)
   gboolean bool;
   gint num, den;
   GstClockTime clocktime;
+  guint64 uint64;
 
   s = gst_structure_new ("name",
       "key", G_TYPE_STRING, "value",
       "bool", G_TYPE_BOOLEAN, TRUE,
       "fraction", GST_TYPE_FRACTION, 1, 5,
-      "clocktime", GST_TYPE_CLOCK_TIME, GST_CLOCK_TIME_NONE, NULL);
+      "clocktime", GST_TYPE_CLOCK_TIME, GST_CLOCK_TIME_NONE,
+      "uint64", G_TYPE_UINT64, (guint64) 1234, NULL);
 
   fail_unless (gst_structure_get_field_type (s, "unknown") == G_TYPE_INVALID);
   /* test setting a different name */
   gst_structure_set_name (s, "newname");
   fail_unless (strcmp (gst_structure_get_string (s, "key"), "value") == 0);
   fail_unless (gst_structure_has_field (s, "key"));
-  fail_unless_equals_int (gst_structure_n_fields (s), 4);
+  fail_unless_equals_int (gst_structure_n_fields (s), 5);
   /* test removing a field */
   gst_structure_remove_field (s, "key");
   fail_if (gst_structure_get_string (s, "key"));
   fail_if (gst_structure_has_field (s, "key"));
-  fail_unless_equals_int (gst_structure_n_fields (s), 3);
+  fail_unless_equals_int (gst_structure_n_fields (s), 4);
 
   fail_unless (gst_structure_get_boolean (s, "bool", &bool));
   fail_unless (bool);
@@ -312,6 +370,9 @@ GST_START_TEST (test_structure_new)
 
   fail_unless (gst_structure_get_clock_time (s, "clocktime", &clocktime));
   fail_unless_equals_uint64 (clocktime, GST_CLOCK_TIME_NONE);
+
+  fail_unless (gst_structure_get_uint64 (s, "uint64", &uint64));
+  fail_unless_equals_uint64 (uint64, 1234);
 
   gst_structure_free (s);
 
@@ -607,6 +668,112 @@ GST_START_TEST (test_vararg_getters)
 
 GST_END_TEST;
 
+static gboolean
+foreach_func (GQuark field_id, const GValue * value, gpointer user_data)
+{
+  gint *sum = user_data;
+  gint v = 0;
+
+  if (G_VALUE_HOLDS_INT (value))
+    v = g_value_get_int (value);
+  *sum += v;
+
+  return TRUE;
+}
+
+GST_START_TEST (test_foreach)
+{
+  GstStructure *s;
+  gint sum = 0;
+
+  s = gst_structure_new ("foo/bar", "baz", G_TYPE_INT, 1, "bla", G_TYPE_INT, 3,
+      NULL);
+  fail_unless (gst_structure_foreach (s, foreach_func, &sum));
+  fail_unless_equals_int (sum, 4);
+  gst_structure_free (s);
+
+}
+
+GST_END_TEST;
+
+static gboolean
+map_func (GQuark field_id, GValue * value, gpointer user_data)
+{
+  if (G_VALUE_HOLDS_INT (value))
+    g_value_set_int (value, 123);
+
+  return TRUE;
+}
+
+GST_START_TEST (test_map_in_place)
+{
+  GstStructure *s, *s2;
+
+  s = gst_structure_new ("foo/bar", "baz", G_TYPE_INT, 1, "bla", G_TYPE_INT, 3,
+      NULL);
+  s2 = gst_structure_new ("foo/bar", "baz", G_TYPE_INT, 123, "bla", G_TYPE_INT,
+      123, NULL);
+  fail_unless (gst_structure_map_in_place (s, map_func, NULL));
+  fail_unless (gst_structure_is_equal (s, s2));
+  gst_structure_free (s);
+  gst_structure_free (s2);
+
+}
+
+GST_END_TEST;
+
+static gboolean
+filter_map_func (GQuark field_id, GValue * value, gpointer user_data)
+{
+  if (strcmp (g_quark_to_string (field_id), "bla") == 0)
+    return FALSE;
+
+  if (G_VALUE_HOLDS_INT (value))
+    g_value_set_int (value, 2);
+
+  return TRUE;
+}
+
+GST_START_TEST (test_filter_and_map_in_place)
+{
+  GstStructure *s, *s2;
+
+  s = gst_structure_new ("foo/bar", "baz", G_TYPE_INT, 1, "bla", G_TYPE_INT, 3,
+      NULL);
+  s2 = gst_structure_new ("foo/bar", "baz", G_TYPE_INT, 2, NULL);
+  gst_structure_filter_and_map_in_place (s, filter_map_func, NULL);
+  fail_unless (gst_structure_is_equal (s, s2));
+  gst_structure_free (s);
+  gst_structure_free (s2);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_flagset)
+{
+  GstStructure *s;
+  GType test_flagset_type;
+  guint test_flags =
+      GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_SKIP | GST_SEEK_FLAG_SNAP_AFTER;
+  guint test_mask = GST_FLAG_SET_MASK_EXACT;
+  guint out_flags, out_mask;
+
+  test_flagset_type = gst_flagset_register (GST_TYPE_SEEK_FLAGS);
+  fail_unless (g_type_is_a (test_flagset_type, GST_TYPE_FLAG_SET));
+
+  /* Check that we can retrieve a non-standard flagset from the structure */
+  s = gst_structure_new ("test-struct", "test-flagset", test_flagset_type,
+      test_flags, test_mask, NULL);
+  fail_unless (gst_structure_get_flagset (s, "test-flagset", &out_flags,
+          &out_mask));
+
+  fail_unless (out_flags == test_flags);
+  fail_unless (out_mask == test_mask);
+  gst_structure_free (s);
+}
+
+GST_END_TEST;
+
 static Suite *
 gst_structure_suite (void)
 {
@@ -619,6 +786,7 @@ gst_structure_suite (void)
   tcase_add_test (tc_chain, test_from_string);
   tcase_add_test (tc_chain, test_to_string);
   tcase_add_test (tc_chain, test_to_from_string);
+  tcase_add_test (tc_chain, test_to_from_string_tag_event);
   tcase_add_test (tc_chain, test_string_properties);
   tcase_add_test (tc_chain, test_complete_structure);
   tcase_add_test (tc_chain, test_structure_new);
@@ -628,6 +796,10 @@ gst_structure_suite (void)
   tcase_add_test (tc_chain, test_structure_nested);
   tcase_add_test (tc_chain, test_structure_nested_from_and_to_string);
   tcase_add_test (tc_chain, test_vararg_getters);
+  tcase_add_test (tc_chain, test_foreach);
+  tcase_add_test (tc_chain, test_map_in_place);
+  tcase_add_test (tc_chain, test_filter_and_map_in_place);
+  tcase_add_test (tc_chain, test_flagset);
   return s;
 }
 

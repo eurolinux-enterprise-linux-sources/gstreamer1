@@ -2,21 +2,42 @@ lib_LTLIBRARIES = libgstnet-@GST_API_VERSION@.la
 
 libgstnet_@GST_API_VERSION@_includedir = $(includedir)/gstreamer-@GST_API_VERSION@/gst/net
 libgstnet_@GST_API_VERSION@_include_HEADERS = \
+    net.h \
     gstnet.h \
     gstnetaddressmeta.h \
     gstnetclientclock.h \
+    gstnetcontrolmessagemeta.h \
     gstnettimepacket.h \
-    gstnettimeprovider.h
+    gstnettimeprovider.h \
+    gstptpclock.h
 
 libgstnet_@GST_API_VERSION@_la_SOURCES = \
     gstnetaddressmeta.c \
     gstnetclientclock.c \
+    gstnetcontrolmessagemeta.c \
     gstnettimepacket.c \
-    gstnettimeprovider.c
+    gstnettimeprovider.c \
+    gstptpclock.c \
+    gstntppacket.c
+
+noinst_HEADERS = gstptp_private.h gstntppacket.h
 
 libgstnet_@GST_API_VERSION@_la_CFLAGS = $(GST_OBJ_CFLAGS) $(GIO_CFLAGS)
-libgstnet_@GST_API_VERSION@_la_LIBADD = $(GST_OBJ_LIBS) $(GIO_LIBS)
+libgstnet_@GST_API_VERSION@_la_LIBADD = $(GST_OBJ_LIBS) $(GIO_LIBS) \
+	$(top_builddir)/libs/gst/base/libgstbase-@GST_API_VERSION@.la
 libgstnet_@GST_API_VERSION@_la_LDFLAGS = $(GST_LIB_LDFLAGS) $(GST_ALL_LDFLAGS) $(GST_LT_LDFLAGS)
+
+# try to prevent packaging errors
+check-libexecdir-consistency:
+	@if test "${GST_PTP_HELPER_INSTALLED}" != "${libexecdir}/gstreamer-$(GST_API_VERSION)/gst-ptp-helper"; then \
+	  echo "*** Inconsistent libexecdir! Please use ./configure --libexecdir=/foo/bar"; \
+	  echo "*** to set the libexecdir and not make libexecdir=/foo/bar or the like."; \
+	  echo "*** The same goes for prefix, libdir etc."; \
+	  echo "*** ${GST_PTP_HELPER_INSTALLED} != ${libexecdir}/gstreamer-$(GST_API_VERSION)/gst-ptp-helper"; \
+	  exit 1; \
+	fi
+
+all-local: check-libexecdir-consistency
 
 CLEANFILES = *.gcno *.gcda *.gcov
 
@@ -25,31 +46,21 @@ CLEANFILES = *.gcno *.gcda *.gcov
 
 gcov: $(libgstnet_@GST_API_VERSION@_la_SOURCES:=.gcov)
 
-Android.mk: Makefile.am
-	androgenizer -:PROJECT gstreamer -:SHARED libgstnet-@GST_API_VERSION@ -:TAGS eng debug \
-	 -:REL_TOP $(top_srcdir) -:ABS_TOP $(abs_top_srcdir) \
-	 -:SOURCES $(libgstnet_@GST_API_VERSION@_la_SOURCES) \
-	 -:CFLAGS $(libgstnet_@GST_API_VERSION@_la_CFLAGS) \
-	 -:LDFLAGS $(libgstnet_@GST_API_VERSION@_la_LDFLAGS) \
-	           $(libgstnet_@GST_API_VERSION@_la_LIBADD) \
-	 -:HEADER_TARGET gstreamer-@GST_API_VERSION@/gst/net \
-	 -:HEADERS $(libgstnet_@GST_API_VERSION@_include_HEADERS) \
-	 -:PASSTHROUGH LOCAL_ARM_MODE:=arm \
-	> $@
-
 
 if HAVE_INTROSPECTION
 BUILT_GIRSOURCES = GstNet-@GST_API_VERSION@.gir
 
 gir_headers=$(patsubst %,$(srcdir)/%, $(libgstnet_@GST_API_VERSION@_include_HEADERS))
 gir_sources=$(patsubst %,$(srcdir)/%, $(libgstnet_@GST_API_VERSION@_la_SOURCES))
-gir_cincludes=--c-include="gst/net/gstnet.h"
+gir_cincludes=--c-include="gst/net/net.h"
 
 GstNet-@GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libgstnet-@GST_API_VERSION@.la
-	$(AM_V_GEN)PKG_CONFIG_PATH="$(GST_PKG_CONFIG_PATH)" \
-		GST_PLUGIN_SYSTEM_PATH="" GST_PLUGIN_PATH="" GST_REGISTRY_UPDATE=no \
+	$(AM_V_GEN)PKG_CONFIG_PATH="$(GST_PKG_CONFIG_PATH)" GI_SCANNER_DISABLE_CACHE=yes\
+		GST_PLUGIN_SYSTEM_PATH_1_0="" GST_PLUGIN_PATH_1_0="" GST_REGISTRY_UPDATE=no \
+		CPPFLAGS="$(CPPFLAGS)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CC="$(CC)" PKG_CONFIG="$(PKG_CONFIG)" DLLTOOL="$(DLLTOOL)" \
 		$(INTROSPECTION_SCANNER) -v --namespace GstNet \
-		--strip-prefix=Gst \
+		--identifier-prefix=Gst \
+		--symbol-prefix=gst \
 		--warn-all \
 		--nsversion=@GST_API_VERSION@ \
 		-I$(top_srcdir) \
@@ -59,15 +70,14 @@ GstNet-@GST_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libgstnet-@GST_API_VERSIO
 		$(gir_cincludes) \
 		--add-include-path=$(top_builddir)/gst \
 		--library-path=$(top_builddir)/gst \
-		--library=$(top_builddir)/gst/libgstreamer-@GST_API_VERSION@.la \
 		--library=libgstnet-@GST_API_VERSION@.la \
 		--include=Gst-@GST_API_VERSION@ \
 		--include=Gio-2.0 \
-		--libtool="$(top_builddir)/libtool" \
+		--libtool="${LIBTOOL}" \
 		--pkg gstreamer-@GST_API_VERSION@ \
 		--pkg gio-2.0 \
 		--pkg-export="gstreamer-net-@GST_API_VERSION@" \
-		--add-init-section="gst_init(NULL,NULL);" \
+		--add-init-section="$(INTROSPECTION_INIT)" \
 		--output $@ \
 		$(gir_headers) \
 		$(gir_sources)

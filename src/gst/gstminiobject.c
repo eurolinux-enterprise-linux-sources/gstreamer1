@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:gstminiobject
@@ -47,8 +47,6 @@
  *
  * A weak reference can be added and remove with gst_mini_object_weak_ref()
  * and gst_mini_object_weak_unref() respectively.
- *
- * Last reviewed on 2012-06-15 (0.11.93)
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -58,11 +56,6 @@
 #include "gst/gstminiobject.h"
 #include "gst/gstinfo.h"
 #include <gobject/gvaluecollector.h>
-
-#ifndef GST_DISABLE_TRACE
-#include "gsttrace.h"
-static GstAllocTrace *_gst_mini_object_trace;
-#endif
 
 /* Mutex used for weak referencing */
 G_LOCK_DEFINE_STATIC (qdata_mutex);
@@ -95,10 +88,6 @@ void
 _priv_gst_mini_object_initialize (void)
 {
   weak_ref_quark = g_quark_from_static_string ("GstMiniObjectWeakRefQuark");
-
-#ifndef GST_DISABLE_TRACE
-  _gst_mini_object_trace = _gst_alloc_trace_register ("GstMiniObject", 0);
-#endif
 }
 
 /**
@@ -106,9 +95,9 @@ _priv_gst_mini_object_initialize (void)
  * @mini_object: a #GstMiniObject
  * @flags: initial #GstMiniObjectFlags
  * @type: the #GType of the mini-object to create
- * @copy_func: the copy function, or NULL
- * @dispose_func: the dispose function, or NULL
- * @free_func: the free function or NULL
+ * @copy_func: (allow-none): the copy function, or %NULL
+ * @dispose_func: (allow-none): the dispose function, or %NULL
+ * @free_func: (allow-none): the free function or %NULL
  *
  * Initializes a mini-object with the desired type and copy/dispose/free
  * functions.
@@ -131,13 +120,11 @@ gst_mini_object_init (GstMiniObject * mini_object, guint flags, GType type,
   mini_object->n_qdata = 0;
   mini_object->qdata = NULL;
 
-#ifndef GST_DISABLE_TRACE
-  _gst_alloc_trace_new (_gst_mini_object_trace, mini_object);
-#endif
+  GST_TRACER_MINI_OBJECT_CREATED (mini_object);
 }
 
 /**
- * gst_mini_object_copy:
+ * gst_mini_object_copy: (skip)
  * @mini_object: the mini-object to copy
  *
  * Creates a copy of the mini-object.
@@ -195,11 +182,13 @@ gst_mini_object_lock (GstMiniObject * object, GstLockFlags flags)
       access_mode &= ~GST_LOCK_FLAG_EXCLUSIVE;
     }
 
-    if (access_mode) {
-      /* shared counter > 1 and write access is not allowed */
-      if (access_mode & GST_LOCK_FLAG_WRITE && IS_SHARED (state))
-        goto lock_failed;
+    /* shared counter > 1 and write access is not allowed */
+    if (((state & GST_LOCK_FLAG_WRITE) != 0
+            || (access_mode & GST_LOCK_FLAG_WRITE) != 0)
+        && IS_SHARED (newstate))
+      goto lock_failed;
 
+    if (access_mode) {
       if ((state & LOCK_FLAG_MASK) == 0) {
         /* nothing mapped, set access_mode */
         newstate |= access_mode;
@@ -281,7 +270,7 @@ gst_mini_object_unlock (GstMiniObject * object, GstLockFlags flags)
  * Modification of a mini-object should only be done after verifying that it
  * is writable.
  *
- * Returns: TRUE if the object is writable.
+ * Returns: %TRUE if the object is writable.
  */
 gboolean
 gst_mini_object_is_writable (const GstMiniObject * mini_object)
@@ -299,7 +288,7 @@ gst_mini_object_is_writable (const GstMiniObject * mini_object)
 }
 
 /**
- * gst_mini_object_make_writable:
+ * gst_mini_object_make_writable: (skip)
  * @mini_object: (transfer full): the mini-object to make writable
  *
  * Checks if a mini-object is writable.  If not, a writable copy is made and
@@ -331,12 +320,12 @@ gst_mini_object_make_writable (GstMiniObject * mini_object)
 }
 
 /**
- * gst_mini_object_ref:
+ * gst_mini_object_ref: (skip)
  * @mini_object: the mini-object
  *
  * Increase the reference count of the mini-object.
  *
- * Note that the refcount affects the writeability
+ * Note that the refcount affects the writability
  * of @mini-object, see gst_mini_object_is_writable(). It is
  * important to note that keeping additional references to
  * GstMiniObject instances can potentially increase the number
@@ -423,7 +412,7 @@ call_finalize_notify (GstMiniObject * obj)
 }
 
 /**
- * gst_mini_object_unref:
+ * gst_mini_object_unref: (skip)
  * @mini_object: the mini-object
  *
  * Decreases the reference count of the mini-object, possibly freeing
@@ -460,9 +449,7 @@ gst_mini_object_unref (GstMiniObject * mini_object)
         call_finalize_notify (mini_object);
         g_free (mini_object->qdata);
       }
-#ifndef GST_DISABLE_TRACE
-      _gst_alloc_trace_free (_gst_mini_object_trace, mini_object);
-#endif
+      GST_TRACER_MINI_OBJECT_DESTROYED (mini_object);
       if (mini_object->free)
         mini_object->free (mini_object);
     }
@@ -471,17 +458,17 @@ gst_mini_object_unref (GstMiniObject * mini_object)
 
 /**
  * gst_mini_object_replace:
- * @olddata: (inout) (transfer full): pointer to a pointer to a mini-object to
- *     be replaced
- * @newdata: pointer to new mini-object
+ * @olddata: (inout) (transfer full) (nullable): pointer to a pointer to a
+ *     mini-object to be replaced
+ * @newdata: (allow-none): pointer to new mini-object
  *
  * Atomically modifies a pointer to point to a new mini-object.
  * The reference count of @olddata is decreased and the reference count of
  * @newdata is increased.
  *
- * Either @newdata and the value pointed to by @olddata may be NULL.
+ * Either @newdata and the value pointed to by @olddata may be %NULL.
  *
- * Returns: TRUE if @newdata was different from @olddata
+ * Returns: %TRUE if @newdata was different from @olddata
  */
 gboolean
 gst_mini_object_replace (GstMiniObject ** olddata, GstMiniObject * newdata)
@@ -516,11 +503,11 @@ gst_mini_object_replace (GstMiniObject ** olddata, GstMiniObject * newdata)
 }
 
 /**
- * gst_mini_object_steal:
+ * gst_mini_object_steal: (skip)
  * @olddata: (inout) (transfer full): pointer to a pointer to a mini-object to
  *     be stolen
  *
- * Replace the current #GstMiniObject pointer to by @olddata with NULL and
+ * Replace the current #GstMiniObject pointer to by @olddata with %NULL and
  * return the old value.
  *
  * Returns: the #GstMiniObject at @oldata
@@ -556,9 +543,9 @@ gst_mini_object_steal (GstMiniObject ** olddata)
  * except that it does not increase the refcount of @newdata and thus
  * takes ownership of @newdata.
  *
- * Either @newdata and the value pointed to by @olddata may be NULL.
+ * Either @newdata and the value pointed to by @olddata may be %NULL.
  *
- * Returns: TRUE if @newdata was different from @olddata
+ * Returns: %TRUE if @newdata was different from @olddata
  */
 gboolean
 gst_mini_object_take (GstMiniObject ** olddata, GstMiniObject * newdata)
@@ -631,7 +618,8 @@ gst_mini_object_weak_unref (GstMiniObject * object,
   if ((i = find_notify (object, weak_ref_quark, TRUE, notify, data)) != -1) {
     remove_notify (object, i);
   } else {
-    g_warning ("%s: couldn't find weak ref %p(%p)", G_STRFUNC, notify, data);
+    g_warning ("%s: couldn't find weak ref %p (object:%p data:%p)", G_STRFUNC,
+        notify, object, data);
   }
   G_UNLOCK (qdata_mutex);
 }
@@ -645,12 +633,12 @@ gst_mini_object_weak_unref (GstMiniObject * object,
  *           needs to be freed
  *
  * This sets an opaque, named pointer on a miniobject.
- * The name is specified through a #GQuark (retrived e.g. via
+ * The name is specified through a #GQuark (retrieved e.g. via
  * g_quark_from_static_string()), and the pointer
  * can be gotten back from the @object with gst_mini_object_get_qdata()
  * until the @object is disposed.
  * Setting a previously set user data pointer, overrides (frees)
- * the old pointer set, using #NULL as pointer essentially
+ * the old pointer set, using %NULL as pointer essentially
  * removes the data stored.
  *
  * @destroy may be specified which is called with @data as argument
@@ -693,7 +681,8 @@ gst_mini_object_set_qdata (GstMiniObject * object, GQuark quark,
  * This function gets back user data pointers stored via
  * gst_mini_object_set_qdata().
  *
- * Returns: (transfer none): The user data pointer set, or %NULL
+ * Returns: (transfer none) (nullable): The user data pointer set, or
+ * %NULL
  */
 gpointer
 gst_mini_object_get_qdata (GstMiniObject * object, GQuark quark)
@@ -723,7 +712,8 @@ gst_mini_object_get_qdata (GstMiniObject * object, GQuark quark)
  * and removes the data from @object without invoking its destroy() function (if
  * any was set).
  *
- * Returns: (transfer full): The user data pointer set, or %NULL
+ * Returns: (transfer full) (nullable): The user data pointer set, or
+ * %NULL
  */
 gpointer
 gst_mini_object_steal_qdata (GstMiniObject * object, GQuark quark)

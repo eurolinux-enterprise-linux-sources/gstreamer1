@@ -22,11 +22,11 @@ event_probe_cb (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
   GstElement *next;
 
   if (GST_EVENT_TYPE (GST_PAD_PROBE_INFO_DATA (info)) != GST_EVENT_EOS)
-    return GST_PAD_PROBE_OK;
+    return GST_PAD_PROBE_PASS;
 
   gst_pad_remove_probe (pad, GST_PAD_PROBE_INFO_ID (info));
 
-  /* push current event back into the queue */
+  /* push current effect back into the queue */
   g_queue_push_tail (&effects, gst_object_ref (cur_effect));
   /* take next effect from the queue */
   next = g_queue_pop_head (&effects);
@@ -105,7 +105,7 @@ bus_cb (GstBus * bus, GstMessage * msg, gpointer user_data)
 
       gst_message_parse_error (msg, &err, &dbg);
       gst_object_default_error (msg->src, err, dbg);
-      g_error_free (err);
+      g_clear_error (&err);
       g_free (dbg);
       g_main_loop_quit (loop);
       break;
@@ -127,7 +127,7 @@ main (int argc, char **argv)
   GOptionContext *ctx;
   GError *err = NULL;
   GMainLoop *loop;
-  GstElement *src, *sink;
+  GstElement *src, *q1, *q2, *effect, *filter1, *filter2, *sink;
   gchar **effect_names, **e;
 
   ctx = g_option_context_new ("");
@@ -135,6 +135,8 @@ main (int argc, char **argv)
   g_option_context_add_group (ctx, gst_init_get_option_group ());
   if (!g_option_context_parse (ctx, &argc, &argv, &err)) {
     g_print ("Error initializing: %s\n", err->message);
+    g_clear_error (&err);
+    g_option_context_free (ctx);
     return 1;
   }
   g_option_context_free (ctx);
@@ -159,21 +161,37 @@ main (int argc, char **argv)
   src = gst_element_factory_make ("videotestsrc", NULL);
   g_object_set (src, "is-live", TRUE, NULL);
 
-  blockpad = gst_element_get_static_pad (src, "src");
+  filter1 = gst_element_factory_make ("capsfilter", NULL);
+  gst_util_set_object_arg (G_OBJECT (filter1), "caps",
+      "video/x-raw, width=320, height=240, "
+      "format={ I420, YV12, YUY2, UYVY, AYUV, Y41B, Y42B, "
+      "YVYU, Y444, v210, v216, NV12, NV21, UYVP, A420, YUV9, YVU9, IYU1 }");
+
+  q1 = gst_element_factory_make ("queue", NULL);
+
+  blockpad = gst_element_get_static_pad (q1, "src");
 
   conv_before = gst_element_factory_make ("videoconvert", NULL);
 
-  cur_effect = g_queue_pop_head (&effects);
+  effect = g_queue_pop_head (&effects);
+  cur_effect = effect;
 
   conv_after = gst_element_factory_make ("videoconvert", NULL);
 
+  q2 = gst_element_factory_make ("queue", NULL);
+
+  filter2 = gst_element_factory_make ("capsfilter", NULL);
+  gst_util_set_object_arg (G_OBJECT (filter2), "caps",
+      "video/x-raw, width=320, height=240, "
+      "format={ RGBx, BGRx, xRGB, xBGR, RGBA, BGRA, ARGB, ABGR, RGB, BGR }");
+
   sink = gst_element_factory_make ("ximagesink", NULL);
 
-  gst_bin_add_many (GST_BIN (pipeline), src, conv_before, cur_effect,
-      conv_after, sink, NULL);
+  gst_bin_add_many (GST_BIN (pipeline), src, filter1, q1, conv_before, effect,
+      conv_after, q2, sink, NULL);
 
-  gst_element_link_many (src, conv_before, cur_effect, conv_after,
-      sink, NULL);
+  gst_element_link_many (src, filter1, q1, conv_before, effect, conv_after,
+      q2, sink, NULL);
 
   gst_element_set_state (pipeline, GST_STATE_PLAYING);
 

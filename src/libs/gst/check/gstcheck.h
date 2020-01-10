@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_CHECK_H__
@@ -73,10 +73,20 @@ GstElement *gst_check_setup_element (const gchar * factory);
 void gst_check_teardown_element (GstElement * element);
 GstPad *gst_check_setup_src_pad (GstElement * element,
     GstStaticPadTemplate * tmpl);
+GstPad *gst_check_setup_src_pad_from_template (GstElement * element,
+    GstPadTemplate * tmpl);
 GstPad * gst_check_setup_src_pad_by_name (GstElement * element,
           GstStaticPadTemplate * tmpl, const gchar *name);
+GstPad * gst_check_setup_src_pad_by_name_from_template (GstElement * element,
+          GstPadTemplate * tmpl, const gchar *name);
+GstPad *gst_check_setup_sink_pad (GstElement * element,
+    GstStaticPadTemplate * tmpl);
+GstPad *gst_check_setup_sink_pad_from_template (GstElement * element,
+    GstPadTemplate * tmpl);
 GstPad * gst_check_setup_sink_pad_by_name (GstElement * element, 
           GstStaticPadTemplate * tmpl, const gchar *name);
+GstPad * gst_check_setup_sink_pad_by_name_from_template (GstElement * element, 
+          GstPadTemplate * tmpl, const gchar *name);
 void gst_check_teardown_pad_by_name (GstElement * element, const gchar *name);
 void gst_check_teardown_src_pad (GstElement * element);
 void gst_check_drop_buffers (void);
@@ -88,17 +98,35 @@ void gst_check_element_push_buffer_list (const gchar * element_name,
 void gst_check_element_push_buffer (const gchar * element_name,
     GstBuffer * buffer_in, GstCaps * caps_in, GstBuffer * buffer_out,
     GstCaps *caps_out);
-GstPad *gst_check_setup_sink_pad (GstElement * element,
-    GstStaticPadTemplate * tmpl);
 void gst_check_teardown_sink_pad (GstElement * element);
 void gst_check_abi_list (GstCheckABIStruct list[], gboolean have_abi_sizes);
 gint gst_check_run_suite (Suite * suite, const gchar * name,
     const gchar * fname);
+void gst_check_setup_events (GstPad * srcpad, GstElement * element,
+    GstCaps * caps, GstFormat format);
+void gst_check_setup_events_with_stream_id (GstPad * srcpad,
+    GstElement * element, GstCaps * caps, GstFormat format,
+    const gchar * stream_id);
+void gst_check_objects_destroyed_on_unref (gpointer object_to_unref, gpointer first_object, ...)
+  G_GNUC_NULL_TERMINATED;
+void gst_check_object_destroyed_on_unref (gpointer object_to_unref);
 
 #define fail_unless_message_error(msg, domain, code)            \
 gst_check_message_error (msg, GST_MESSAGE_ERROR,                \
   GST_ ## domain ## _ERROR, GST_ ## domain ## _ERROR_ ## code)
 #define assert_message_error(m, d, c) fail_unless_message_error(m, d, c)
+
+#ifdef GST_CHECK_TEST_ENVIRONMENT_BEACON
+#define GST_DO_CHECK_TEST_ENVIRONMENT \
+G_STMT_START {                        \
+  if (g_getenv (GST_CHECK_TEST_ENVIRONMENT_BEACON) == NULL) \
+    fail ("Test environment not set up correctly! Expected environment " \
+       "variable '%s' to be set.", GST_CHECK_TEST_ENVIRONMENT_BEACON); \
+} G_STMT_END
+
+#else
+#define GST_DO_CHECK_TEST_ENVIRONMENT /* nothing to check */
+#endif
 
 /**
  * GST_START_TEST:
@@ -112,9 +140,10 @@ gst_check_message_error (msg, GST_MESSAGE_ERROR,                \
  * wrapper for checks END_TEST
  */
 #define GST_START_TEST(__testname) \
-static void __testname (int __i__)\
+static void __testname (int G_GNUC_UNUSED __i__) \
 {\
   GST_DEBUG ("test start"); \
+  GST_DO_CHECK_TEST_ENVIRONMENT; \
   tcase_fn_start (""# __testname, __FILE__, __LINE__);
 
 #define GST_END_TEST GST_LOG ("cleaning up tasks"); \
@@ -150,6 +179,38 @@ G_STMT_START {                                                          \
 #define assert_equals_int(a, b) fail_unless_equals_int(a, b)
 
 /**
+ * fail_unless_equals_int_hex:
+ * @a: a #gint value or expression
+ * @b: a #gint value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define fail_unless_equals_int_hex(a, b)                                \
+G_STMT_START {								\
+  int first = a;							\
+  int second = b;							\
+  fail_unless(first == second,						\
+    "'" #a "' (0x%08x) is not equal to '" #b"' (0x%08x)", first, second);\
+} G_STMT_END;
+
+/**
+ * assert_equals_int_hex:
+ * @a: a #gint value or expression
+ * @b: a #gint value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define assert_equals_int_hex(a, b) fail_unless_equals_int_hex(a, b)
+
+/**
  * fail_unless_equals_int64:
  * @a: a #gint64 value or expression
  * @b: a #gint64 value or expression
@@ -178,6 +239,37 @@ G_STMT_START {                                                          \
 #define assert_equals_int64(a, b) fail_unless_equals_int64(a, b)
 
 /**
+ * fail_unless_equals_int64_hex:
+ * @a: a #gint64 value or expression
+ * @b: a #gint64 value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define fail_unless_equals_int64_hex(a, b)                              \
+G_STMT_START {								\
+  gint64 first = a;							\
+  gint64 second = b;							\
+  fail_unless(first == second,						\
+    "'" #a "' (0x%016x) is not equal to '" #b"' (0x%016x)", first, second);\
+} G_STMT_END;
+/**
+ * assert_equals_int64_hex:
+ * @a: a #gint64 value or expression
+ * @b: a #gint64 value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define assert_equals_int64_hex(a,b) fail_unless_equals_int64_hex(a,b)
+
+/**
  * fail_unless_equals_uint64:
  * @a: a #guint64 value or expression
  * @b: a #guint64 value or expression
@@ -204,6 +296,37 @@ G_STMT_START {                                                          \
  * macro is for use in unit tests.
  */
 #define assert_equals_uint64(a, b) fail_unless_equals_uint64(a, b)
+
+/**
+ * fail_unless_equals_uint64_hex:
+ * @a: a #gint64 value or expression
+ * @b: a #gint64 value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define fail_unless_equals_uint64_hex(a, b)                             \
+G_STMT_START {								\
+  guint64 first = a;							\
+  guint64 second = b;							\
+  fail_unless(first == second,						\
+    "'" #a "' (0x%016x) is not equal to '" #b"' (0x%016x)", first, second);\
+} G_STMT_END;
+/**
+ * assert_equals_uint64_hex:
+ * @a: a #guint64 value or expression
+ * @b: a #guint64 value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this is not the
+ * case, printing both expressions and the values they evaluated to in
+ * hexadecimal format. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define assert_equals_uint64_hex(a,b) fail_unless_equals_uint64_hex(a,b)
 
 /**
  * fail_unless_equals_string:
@@ -262,6 +385,37 @@ G_STMT_START {                                                    \
  */
 #define assert_equals_float(a, b) fail_unless_equals_float(a, b)
 
+/**
+ * fail_unless_equals_pointer:
+ * @a: a pointer value or expression
+ * @b: a pointer value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this
+ * is not the case, printing both expressions and the values they
+ * evaluated to. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define fail_unless_equals_pointer(a, b)                          \
+G_STMT_START {                                                    \
+  gpointer first = a;                                             \
+  gpointer second = b;                                            \
+  fail_unless(first == second,                                    \
+    "'" #a "' (%p) is not equal to '" #b "' (%p)", first, second);\
+} G_STMT_END;
+
+/**
+ * assert_equals_pointer:
+ * @a: a pointer value or expression
+ * @b: a pointer value or expression
+ *
+ * This macro checks that @a and @b are equal and aborts if this
+ * is not the case, printing both expressions and the values they
+ * evaluated to. This macro is for use in unit tests.
+ *
+ * Since: 1.2
+ */
+#define assert_equals_pointer(a, b) fail_unless_equals_pointer(a, b)
 
 /***
  * thread test macros and variables
@@ -278,6 +432,9 @@ MAIN_SYNCHRONIZE();
 
 #define MAIN_INIT()                     \
 G_STMT_START {                          \
+  g_mutex_init (&mutex);                \
+  g_cond_init (&start_cond);            \
+  g_cond_init (&sync_cond);             \
   _gst_check_threads_running = TRUE;    \
 } G_STMT_END;
 
@@ -321,6 +478,9 @@ G_STMT_START {                                                  \
   g_list_foreach (thread_list, (GFunc) g_thread_join, NULL);    \
   g_list_free (thread_list);                                    \
   thread_list = NULL;                                           \
+  g_mutex_clear (&mutex);                                       \
+  g_cond_clear (&start_cond);                                   \
+  g_cond_clear (&sync_cond);                                    \
   GST_DEBUG ("MAIN: joined");                                   \
 } G_STMT_END;
 
@@ -340,6 +500,8 @@ G_STMT_START {                                                  \
 G_STMT_START {                                                  \
   /* synchronize everyone */                                    \
   GST_DEBUG ("THREAD %p: syncing", g_thread_self ());           \
+  fail_if (g_mutex_trylock (&mutex),                            \
+      "bug in unit test, mutex should be locked at this point");\
   g_cond_wait (&sync_cond, &mutex);                             \
   GST_DEBUG ("THREAD %p: synced", g_thread_self ());            \
   g_mutex_unlock (&mutex);                                      \
@@ -351,7 +513,7 @@ G_STMT_START {                                                  \
   g_usleep (1);                                                 \
 } G_STMT_END;
 
-#define THREAD_TEST_RUNNING()   (_gst_check_threads_running == TRUE)
+#define THREAD_TEST_RUNNING()   (!!_gst_check_threads_running)
 
 /* additional assertions */
 #define ASSERT_CRITICAL(code)                                   \
@@ -359,8 +521,9 @@ G_STMT_START {                                                  \
   _gst_check_expecting_log = TRUE;                              \
   _gst_check_raised_critical = FALSE;                           \
   code;                                                         \
-  _fail_unless (_gst_check_raised_critical, __FILE__, __LINE__, \
-                "Expected g_critical, got nothing", NULL);      \
+  if (!_gst_check_raised_critical)                              \
+    _ck_assert_failed (__FILE__, __LINE__,                      \
+        "Expected g_critical, got nothing", NULL);              \
   _gst_check_expecting_log = FALSE;                             \
 } G_STMT_END
 
@@ -369,8 +532,9 @@ G_STMT_START {                                                  \
   _gst_check_expecting_log = TRUE;                              \
   _gst_check_raised_warning = FALSE;                            \
   code;                                                         \
-  _fail_unless (_gst_check_raised_warning, __FILE__, __LINE__,  \
-                "Expected g_warning, got nothing", NULL);       \
+  if (!_gst_check_raised_warning)                               \
+    _ck_assert_failed (__FILE__, __LINE__,                      \
+        "Expected g_warning, got nothing", NULL);               \
   _gst_check_expecting_log = FALSE;                             \
 } G_STMT_END
 
@@ -414,7 +578,7 @@ G_STMT_START {                                                  \
 } G_STMT_END
 
 #define ASSERT_SET_STATE(element, state, ret)                   \
-fail_unless (gst_element_set_state (element,                    \
+fail_unless (gst_element_set_state (GST_ELEMENT(element),       \
   state) == ret,                                                \
   "could not change state to " #state);
 
@@ -428,7 +592,8 @@ int main (int argc, char **argv)                                \
 }
 
 /* Hack to allow run-time selection of unit tests to run via the
- * GST_CHECKS environment variable (test function names, comma-separated) */
+ * GST_CHECKS environment variable (test function names globs, comma
+ * separated), or GST_CHECKS_IGNORE with the same semantics */
 
 gboolean _gst_check_run_test_func (const gchar * func_name);
 
@@ -443,11 +608,21 @@ __gst_tcase_add_test (TCase * tc, TFun tf, const char * fname, int signal,
 
 #define _tcase_add_test __gst_tcase_add_test
 
-/* add define to skip broken tests */
+/* A special variant to add broken tests. These are normally skipped, but can be 
+ * forced to run via GST_CHECKS */
 #define tcase_skip_broken_test(chain,test_func) \
-  if (0) { tcase_add_test(chain,test_func); } else { \
+G_STMT_START {                                                  \
+  const char *env = g_getenv ("GST_CHECKS");                    \
+                                                                \
+  if (env != NULL && g_pattern_match_simple (env, G_STRINGIFY (test_func))) {   \
+    tcase_add_test(chain,test_func);                            \
+  } else {                                                      \
     g_printerr ("FIXME: skipping test %s because it's broken\n", G_STRINGIFY (test_func)); \
-  }
+  } \
+} G_STMT_END
+
+#define tcase_skip_broken_loop_test(chain,test_func,a,b)        \
+  tcase_skip_broken_test (chain, test_func)
 
 G_END_DECLS
 

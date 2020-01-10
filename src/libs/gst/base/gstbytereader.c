@@ -1,7 +1,7 @@
 /* GStreamer byte reader
  *
  * Copyright (C) 2008 Sebastian Dröge <sebastian.droege@collabora.co.uk>.
- * Copyright (C) 2009 Tim-Philipp Müller <tim centricular net>
+ * Copyright (C) 2009,2014 Tim-Philipp Müller <tim centricular net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -42,7 +42,7 @@
  */
 
 /**
- * gst_byte_reader_new:
+ * gst_byte_reader_new: (skip)
  * @data: (in) (transfer none) (array length=size): data from which the
  *     #GstByteReader should read
  * @size: Size of @data in bytes
@@ -97,6 +97,56 @@ gst_byte_reader_init (GstByteReader * reader, const guint8 * data, guint size)
   reader->data = data;
   reader->size = size;
   reader->byte = 0;
+}
+
+/**
+ * gst_byte_reader_peek_sub_reader: (skip)
+ * @reader: an existing and initialized #GstByteReader instance
+ * @sub_reader: a #GstByteReader instance to initialize as sub-reader
+ * @size: size of @sub_reader in bytes
+ *
+ * Initializes a #GstByteReader sub-reader instance to contain @size bytes of
+ * data from the current position of @reader. This is useful to read chunked
+ * formats and make sure that one doesn't read beyond the size of the sub-chunk.
+ *
+ * Unlike gst_byte_reader_get_sub_reader(), this function does not modify the
+ * current position of @reader.
+ *
+ * Returns: FALSE on error or if @reader does not contain @size more bytes from
+ *     the current position, and otherwise TRUE
+ *
+ * Since: 1.6
+ */
+gboolean
+gst_byte_reader_peek_sub_reader (GstByteReader * reader,
+    GstByteReader * sub_reader, guint size)
+{
+  return _gst_byte_reader_peek_sub_reader_inline (reader, sub_reader, size);
+}
+
+/**
+ * gst_byte_reader_get_sub_reader: (skip)
+ * @reader: an existing and initialized #GstByteReader instance
+ * @sub_reader: a #GstByteReader instance to initialize as sub-reader
+ * @size: size of @sub_reader in bytes
+ *
+ * Initializes a #GstByteReader sub-reader instance to contain @size bytes of
+ * data from the current position of @reader. This is useful to read chunked
+ * formats and make sure that one doesn't read beyond the size of the sub-chunk.
+ *
+ * Unlike gst_byte_reader_peek_sub_reader(), this function also modifies the
+ * position of @reader and moves it forward by @size bytes.
+ *
+ * Returns: FALSE on error or if @reader does not contain @size more bytes from
+ *     the current position, and otherwise TRUE
+ *
+ * Since: 1.6
+ */
+gboolean
+gst_byte_reader_get_sub_reader (GstByteReader * reader,
+    GstByteReader * sub_reader, guint size)
+{
+  return _gst_byte_reader_get_sub_reader_inline (reader, sub_reader, size);
 }
 
 /**
@@ -771,6 +821,83 @@ gst_byte_reader_dup_data (GstByteReader * reader, guint size, guint8 ** val)
   return _gst_byte_reader_dup_data_inline (reader, size, val);
 }
 
+/* Special optimized scan for mask 0xffffff00 and pattern 0x00000100 */
+static inline gint
+_scan_for_start_code (const guint8 * data, guint size)
+{
+  guint8 *pdata = (guint8 *) data;
+  guint8 *pend = (guint8 *) (data + size - 4);
+
+  while (pdata <= pend) {
+    if (pdata[2] > 1) {
+      pdata += 3;
+    } else if (pdata[1]) {
+      pdata += 2;
+    } else if (pdata[0] || pdata[2] != 1) {
+      pdata++;
+    } else {
+      return (pdata - data);
+    }
+  }
+
+  /* nothing found */
+  return -1;
+}
+
+static inline guint
+_masked_scan_uint32_peek (const GstByteReader * reader,
+    guint32 mask, guint32 pattern, guint offset, guint size, guint32 * value)
+{
+  const guint8 *data;
+  guint32 state;
+  guint i;
+
+  g_return_val_if_fail (size > 0, -1);
+  g_return_val_if_fail ((guint64) offset + size <= reader->size - reader->byte,
+      -1);
+
+  /* we can't find the pattern with less than 4 bytes */
+  if (G_UNLIKELY (size < 4))
+    return -1;
+
+  data = reader->data + reader->byte + offset;
+
+  /* Handle special case found in MPEG and H264 */
+  if ((pattern == 0x00000100) && (mask == 0xffffff00)) {
+    gint ret = _scan_for_start_code (data, size);
+
+    if (ret == -1)
+      return ret;
+
+    if (value != NULL)
+      *value = (1 << 8) | data[ret + 3];
+
+    return ret + offset;
+  }
+
+  /* set the state to something that does not match */
+  state = ~pattern;
+
+  /* now find data */
+  for (i = 0; i < size; i++) {
+    /* throw away one byte and move in the next byte */
+    state = ((state << 8) | data[i]);
+    if (G_UNLIKELY ((state & mask) == pattern)) {
+      /* we have a match but we need to have skipped at
+       * least 4 bytes to fill the state. */
+      if (G_LIKELY (i >= 3)) {
+        if (value)
+          *value = state;
+        return offset + i - 3;
+      }
+    }
+  }
+
+  /* nothing found */
+  return -1;
+}
+
+
 /**
  * gst_byte_reader_masked_scan_uint32:
  * @reader: a #GstByteReader
@@ -817,37 +944,39 @@ guint
 gst_byte_reader_masked_scan_uint32 (const GstByteReader * reader, guint32 mask,
     guint32 pattern, guint offset, guint size)
 {
-  const guint8 *data;
-  guint32 state;
-  guint i;
+  return _masked_scan_uint32_peek (reader, mask, pattern, offset, size, NULL);
+}
 
-  g_return_val_if_fail (size > 0, -1);
-  g_return_val_if_fail ((guint64) offset + size <= reader->size - reader->byte,
-      -1);
-
-  /* we can't find the pattern with less than 4 bytes */
-  if (G_UNLIKELY (size < 4))
-    return -1;
-
-  data = reader->data + reader->byte + offset;
-
-  /* set the state to something that does not match */
-  state = ~pattern;
-
-  /* now find data */
-  for (i = 0; i < size; i++) {
-    /* throw away one byte and move in the next byte */
-    state = ((state << 8) | data[i]);
-    if (G_UNLIKELY ((state & mask) == pattern)) {
-      /* we have a match but we need to have skipped at
-       * least 4 bytes to fill the state. */
-      if (G_LIKELY (i >= 3))
-        return offset + i - 3;
-    }
-  }
-
-  /* nothing found */
-  return -1;
+/**
+ * gst_byte_reader_masked_scan_uint32_peek:
+ * @reader: a #GstByteReader
+ * @mask: mask to apply to data before matching against @pattern
+ * @pattern: pattern to match (after mask is applied)
+ * @offset: offset from which to start scanning, relative to the current
+ *     position
+ * @size: number of bytes to scan from offset
+ * @value: pointer to uint32 to return matching data
+ *
+ * Scan for pattern @pattern with applied mask @mask in the byte reader data,
+ * starting from offset @offset relative to the current position.
+ *
+ * The bytes in @pattern and @mask are interpreted left-to-right, regardless
+ * of endianness.  All four bytes of the pattern must be present in the
+ * byte reader data for it to match, even if the first or last bytes are masked
+ * out.
+ *
+ * It is an error to call this function without making sure that there is
+ * enough data (offset+size bytes) in the byte reader.
+ *
+ * Returns: offset of the first match, or -1 if no match was found.
+ *
+ * Since: 1.6
+ */
+guint
+gst_byte_reader_masked_scan_uint32_peek (const GstByteReader * reader,
+    guint32 mask, guint32 pattern, guint offset, guint size, guint32 * value)
+{
+  return _masked_scan_uint32_peek (reader, mask, pattern, offset, size, value);
 }
 
 #define GST_BYTE_READER_SCAN_STRING(bits) \
@@ -957,7 +1086,7 @@ GST_BYTE_READER_SKIP_STRING (32);
  * gst_byte_reader_peek_string:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer none) (array zero-terminated=1): address of a
- *     #gchar pointer varieble in which to store the result
+ *     #gchar pointer variable in which to store the result
  *
  * Returns a constant pointer to the current data position if there is
  * a NUL-terminated string in the data (this could be just a NUL terminator).
@@ -973,7 +1102,7 @@ GST_BYTE_READER_SKIP_STRING (32);
  * gst_byte_reader_peek_string_utf8:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer none) (array zero-terminated=1): address of a
- *     #gchar pointer varieble in which to store the result
+ *     #gchar pointer variable in which to store the result
  *
  * Returns a constant pointer to the current data position if there is
  * a NUL-terminated string in the data (this could be just a NUL terminator).
@@ -1006,7 +1135,7 @@ gst_byte_reader_peek_string_utf8 (const GstByteReader * reader,
  * gst_byte_reader_get_string_utf8:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer none) (array zero-terminated=1): address of a
- *     #gchar pointer varieble in which to store the result
+ *     #gchar pointer variable in which to store the result
  *
  * Returns a constant pointer to the current data position if there is
  * a NUL-terminated string in the data (this could be just a NUL terminator),
@@ -1062,7 +1191,7 @@ gst_byte_reader_dup_string_utf##bits (GstByteReader * reader, type ** str) \
  * gst_byte_reader_dup_string_utf8:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer full) (array zero-terminated=1): address of a
- *     #gchar pointer varieble in which to store the result
+ *     #gchar pointer variable in which to store the result
  *
  * Free-function: g_free
  *
@@ -1082,7 +1211,7 @@ GST_BYTE_READER_DUP_STRING (8, gchar);
  * gst_byte_reader_dup_string_utf16:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer full) (array zero-terminated=1): address of a
- *     #guint16 pointer varieble in which to store the result
+ *     #guint16 pointer variable in which to store the result
  *
  * Free-function: g_free
  *
@@ -1108,7 +1237,7 @@ GST_BYTE_READER_DUP_STRING (16, guint16);
  * gst_byte_reader_dup_string_utf32:
  * @reader: a #GstByteReader instance
  * @str: (out) (transfer full) (array zero-terminated=1): address of a
- *     #guint32 pointer varieble in which to store the result
+ *     #guint32 pointer variable in which to store the result
  *
  * Free-function: g_free
  *

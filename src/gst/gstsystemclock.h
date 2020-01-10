@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -47,7 +47,7 @@ typedef struct _GstSystemClockPrivate GstSystemClockPrivate;
  * @GST_CLOCK_TYPE_REALTIME: time since Epoch
  * @GST_CLOCK_TYPE_MONOTONIC: monotonic time since some unspecified starting
  *                            point
- * @GST_CLOCK_TYPE_OTHER: some other time source is used (Since: 1.0.5)
+ * @GST_CLOCK_TYPE_OTHER: some other time source is used (Since 1.0.5)
  *
  * The different kind of clocks.
  */
@@ -81,6 +81,11 @@ struct _GstSystemClockClass {
 GType                   gst_system_clock_get_type       (void);
 
 GstClock*               gst_system_clock_obtain         (void);
+void                    gst_system_clock_set_default    (GstClock *new_clock);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstSystemClock, gst_object_unref)
+#endif
 
 G_END_DECLS
 

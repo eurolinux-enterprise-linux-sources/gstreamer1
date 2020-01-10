@@ -18,15 +18,15 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
  * SECTION:gsttimedvaluecontrolsource
  * @short_description: timed value control source base class
  *
- * Base class for #GstContrlSources that use time-stamped values.
+ * Base class for #GstControlSource that use time-stamped values.
  *
  * When overriding bind, chain up first to give this bind implementation a
  * chance to setup things.
@@ -52,6 +52,17 @@ GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
 G_DEFINE_ABSTRACT_TYPE_WITH_CODE (GstTimedValueControlSource,
     gst_timed_value_control_source, GST_TYPE_CONTROL_SOURCE, _do_init);
 
+
+enum
+{
+  VALUE_CHANGED_SIGNAL,
+  VALUE_ADDED_SIGNAL,
+  VALUE_REMOVED_SIGNAL,
+  LAST_SIGNAL
+};
+
+static guint gst_timed_value_control_source_signals[LAST_SIGNAL] = { 0 };
+
 /*
  * gst_control_point_free:
  * @prop: the object to free
@@ -65,6 +76,29 @@ gst_control_point_free (GstControlPoint * cp)
   g_return_if_fail (cp);
 
   g_slice_free (GstControlPoint, cp);
+}
+
+static gpointer
+gst_control_point_copy (GstControlPoint * boxed)
+{
+  return g_slice_dup (GstControlPoint, boxed);
+}
+
+GType
+gst_control_point_get_type (void)
+{
+  static volatile gsize type_id = 0;
+
+  if (g_once_init_enter (&type_id)) {
+    GType tmp =
+        g_boxed_type_register_static (g_intern_static_string
+        ("GstControlPoint"),
+        (GBoxedCopyFunc) gst_control_point_copy,
+        (GBoxedFreeFunc) gst_control_point_free);
+    g_once_init_leave (&type_id, tmp);
+  }
+
+  return type_id;
 }
 
 static void
@@ -105,12 +139,13 @@ gst_control_point_compare (gconstpointer p1, gconstpointer p2)
  * gst_control_point_find:
  * @p1: a pointer to a #GstControlPoint
  * @p2: a pointer to a #GstClockTime
+ * @user_data: supplied user data
  *
- * Compare function for g_list operations that operates on a #GstControlPoint and
+ * Compare function for g_sequence operations that operates on a #GstControlPoint and
  * a #GstClockTime.
  */
 static gint
-gst_control_point_find (gconstpointer p1, gconstpointer p2)
+gst_control_point_find (gconstpointer p1, gconstpointer p2, gpointer user_data)
 {
   GstClockTime ct1 = ((GstControlPoint *) p1)->timestamp;
   GstClockTime ct2 = *(GstClockTime *) p2;
@@ -136,25 +171,25 @@ static void
 gst_timed_value_control_source_set_internal (GstTimedValueControlSource *
     self, GstClockTime timestamp, const gdouble value)
 {
-  GSequenceIter *iter;
+  GstControlPoint *cp;
+
+  g_mutex_lock (&self->lock);
 
   /* check if a control point for the timestamp already exists */
-
-  /* iter contains the iter right *after* timestamp */
   if (G_LIKELY (self->values)) {
-    iter =
-        g_sequence_search (self->values, &timestamp,
+    GSequenceIter *iter = g_sequence_lookup (self->values, &timestamp,
         (GCompareDataFunc) gst_control_point_find, NULL);
-    if (iter) {
-      GSequenceIter *prev = g_sequence_iter_prev (iter);
-      GstControlPoint *cp = g_sequence_get (prev);
 
-      /* If the timestamp is the same just update the control point value */
-      if (cp->timestamp == timestamp) {
-        /* update control point */
-        cp->value = value;
-        goto done;
-      }
+    if (iter) {
+      GstControlPoint *cp = g_sequence_get (iter);
+
+      /* update control point */
+      cp->value = value;
+      g_mutex_unlock (&self->lock);
+
+      g_signal_emit (self,
+          gst_timed_value_control_source_signals[VALUE_CHANGED_SIGNAL], 0, cp);
+      goto done;
     }
   } else {
     self->values = g_sequence_new ((GDestroyNotify) gst_control_point_free);
@@ -162,9 +197,14 @@ gst_timed_value_control_source_set_internal (GstTimedValueControlSource *
   }
 
   /* sort new cp into the prop->values list */
-  g_sequence_insert_sorted (self->values, _make_new_cp (self, timestamp,
-          value), (GCompareDataFunc) gst_control_point_compare, NULL);
+  cp = _make_new_cp (self, timestamp, value);
+  g_sequence_insert_sorted (self->values, cp,
+      (GCompareDataFunc) gst_control_point_compare, NULL);
   self->nvalues++;
+  g_mutex_unlock (&self->lock);
+
+  g_signal_emit (self,
+      gst_timed_value_control_source_signals[VALUE_ADDED_SIGNAL], 0, cp);
 
 done:
   self->valid_cache = FALSE;
@@ -181,7 +221,7 @@ done:
  *
  * For use in control source implementations.
  *
- * Returns: the found #GSequenceIter or %NULL
+ * Returns: (transfer none): the found #GSequenceIter or %NULL
  */
 GSequenceIter *gst_timed_value_control_source_find_control_point_iter
     (GstTimedValueControlSource * self, GstClockTime timestamp)
@@ -223,9 +263,7 @@ gst_timed_value_control_source_set (GstTimedValueControlSource * self,
   g_return_val_if_fail (GST_IS_TIMED_VALUE_CONTROL_SOURCE (self), FALSE);
   g_return_val_if_fail (GST_CLOCK_TIME_IS_VALID (timestamp), FALSE);
 
-  g_mutex_lock (&self->lock);
   gst_timed_value_control_source_set_internal (self, timestamp, value);
-  g_mutex_unlock (&self->lock);
 
   return TRUE;
 }
@@ -256,10 +294,8 @@ gst_timed_value_control_source_set_from_list (GstTimedValueControlSource *
       GST_WARNING ("GstTimedValued with invalid timestamp passed to %s",
           GST_FUNCTION);
     } else {
-      g_mutex_lock (&self->lock);
       gst_timed_value_control_source_set_internal (self, tv->timestamp,
           tv->value);
-      g_mutex_unlock (&self->lock);
       res = TRUE;
     }
   }
@@ -282,6 +318,7 @@ gst_timed_value_control_source_unset (GstTimedValueControlSource * self,
 {
   GSequenceIter *iter;
   gboolean res = FALSE;
+  GstControlPoint *cp = NULL;
 
   g_return_val_if_fail (GST_IS_TIMED_VALUE_CONTROL_SOURCE (self), FALSE);
   g_return_val_if_fail (GST_CLOCK_TIME_IS_VALID (timestamp), FALSE);
@@ -289,23 +326,25 @@ gst_timed_value_control_source_unset (GstTimedValueControlSource * self,
   g_mutex_lock (&self->lock);
   /* check if a control point for the timestamp exists */
   if (G_LIKELY (self->values) && (iter =
-          g_sequence_search (self->values, &timestamp,
+          g_sequence_lookup (self->values, &timestamp,
               (GCompareDataFunc) gst_control_point_find, NULL))) {
-    GstControlPoint *cp;
 
     /* Iter contains the iter right after timestamp, i.e.
      * we need to get the previous one and check the timestamp
      */
-    iter = g_sequence_iter_prev (iter);
-    cp = g_sequence_get (iter);
-    if (cp->timestamp == timestamp) {
-      g_sequence_remove (iter);
-      self->nvalues--;
-      self->valid_cache = FALSE;
-      res = TRUE;
-    }
+    cp = g_slice_dup (GstControlPoint, g_sequence_get (iter));
+    g_sequence_remove (iter);
+    self->nvalues--;
+    self->valid_cache = FALSE;
+    res = TRUE;
   }
   g_mutex_unlock (&self->lock);
+
+  if (cp) {
+    g_signal_emit (self,
+        gst_timed_value_control_source_signals[VALUE_REMOVED_SIGNAL], 0, cp);
+    g_slice_free (GstControlPoint, cp);
+  }
 
   return res;
 }
@@ -418,6 +457,54 @@ gst_timed_value_control_source_class_init (GstTimedValueControlSourceClass
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   //GstControlSourceClass *csource_class = GST_CONTROL_SOURCE_CLASS (klass);
+
+  /**
+   * GstTimedValueControlSource::value-changed
+   * @self: The #GstTimedValueControlSource on which a #GstTimedValue has changed
+   * @timed_value: The #GstTimedValue where the value changed
+   *
+   * Emited right after the new value has been set on @timed_signals
+   *
+   * Since: 1.6
+   */
+  gst_timed_value_control_source_signals[VALUE_CHANGED_SIGNAL] =
+      g_signal_new ("value-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_FIRST, 0, NULL,
+      NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1,
+      gst_control_point_get_type ());
+
+  /**
+   * GstTimedValueControlSource::value-added
+   * @self: The #GstTimedValueControlSource into which a #GstTimedValue has been
+   *        added
+   * @timed_value: The newly added #GstTimedValue
+   *
+   * Emited right after the new value has been added to @self
+   *
+   * Since: 1.6
+   */
+  gst_timed_value_control_source_signals[VALUE_ADDED_SIGNAL] =
+      g_signal_new ("value-added", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_FIRST, 0, NULL,
+      NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1,
+      gst_control_point_get_type ());
+
+  /**
+   * GstTimedValueControlSource::value-removed
+   * @self: The #GstTimedValueControlSource from which a #GstTimedValue has been
+   *        removed
+   * @timed_value: The removed #GstTimedValue
+   *
+   * Emited when @timed_value is removed from @self
+   *
+   * Since: 1.6
+   */
+  gst_timed_value_control_source_signals[VALUE_REMOVED_SIGNAL] =
+      g_signal_new ("value-removed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_FIRST, 0, NULL,
+      NULL, g_cclosure_marshal_generic, G_TYPE_NONE, 1,
+      gst_control_point_get_type ());
+
 
   gobject_class->finalize = gst_timed_value_control_source_finalize;
 }

@@ -7,12 +7,12 @@ GST_TOOLS_DIR = $(top_builddir)/tools
 REGISTRY_ENVIRONMENT = \
 	GST_REGISTRY=$(CHECK_REGISTRY)
 
-TESTS_ENVIRONMENT = \
+AM_TESTS_ENVIRONMENT += \
         GST_STATE_IGNORE_ELEMENTS="$(STATE_IGNORE_ELEMENTS)"	\
         $(REGISTRY_ENVIRONMENT)					\
-        GST_PLUGIN_SCANNER=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner \
-        GST_PLUGIN_SYSTEM_PATH=					\
-        GST_PLUGIN_PATH=$(top_builddir)/plugins
+        GST_PLUGIN_SCANNER_1_0=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner \
+        GST_PLUGIN_SYSTEM_PATH_1_0=					\
+        GST_PLUGIN_PATH_1_0=$(top_builddir)/plugins
 
 plugindir = $(libdir)/gstreamer-@GST_API_VERSION@
 
@@ -39,9 +39,13 @@ endif
 # Do not run the abi test in case any option which causes the API to change has
 # been used
 if !GST_DISABLE_REGISTRY
-if !GST_DISABLE_TRACE
 ABI_CHECKS = gst/gstabi
 endif
+
+if !GST_DISABLE_GST_DEBUG
+PRINTF_CHECKS = gst/gstprintf
+else
+PRINTF_CHECKS =
 endif
 
 LIBSABI_CHECKS = libs/libsabi
@@ -61,19 +65,22 @@ REGISTRY_CHECKS =				\
 	gst/gst					\
 	gst/gstbin				\
 	gst/gstchildproxy			\
-	gst/gstcontroller				\
+	gst/gstcontext				\
+	gst/gstcontroller			\
 	gst/gstelement				\
 	gst/gstelementfactory			\
 	gst/gstevent				\
 	gst/gstghostpad				\
 	gst/gstplugin				\
 	gst/gstpreset				\
+	gst/gstprotection			\
 	gst/gstquery				\
 	gst/gstregistry				\
 	gst/gsturi  				\
 	gst/gstutils				\
 	generic/sinks				\
 	elements/capsfilter			\
+	elements/concat				\
 	elements/fakesink			\
 	elements/fakesrc			\
 	elements/fdsrc			  	\
@@ -87,8 +94,11 @@ REGISTRY_CHECKS =				\
 	elements/queue                          \
 	elements/queue2                         \
 	elements/valve                          \
+	elements/streamiddemux			\
+	libs/baseparse				\
 	libs/basesrc				\
 	libs/basesink				\
+	libs/sparsefile				\
 	libs/controller				\
 	libs/queuearray				\
 	libs/typefindhelper			\
@@ -102,12 +112,15 @@ check_PROGRAMS =				\
 	gst/gstatomicqueue			\
 	gst/gstbuffer				\
 	gst/gstbufferlist			\
+	gst/gstbufferpool			\
 	gst/gstmeta				\
 	gst/gstmemory				\
 	gst/gstbus				\
 	gst/gstcaps     			\
+	gst/gstcapsfeatures    			\
 	$(CXX_CHECKS)			     	\
 	gst/gstdatetime     			\
+	gst/gstdevice				\
 	gst/gstinfo		 		\
 	gst/gstiterator 			\
 	gst/gstmessage	 			\
@@ -117,11 +130,15 @@ check_PROGRAMS =				\
 	gst/gstparamspecs			\
 	gst/gstpipeline				\
 	gst/gstpoll     			\
+	gst/gstprotection     			\
+	$(PRINTF_CHECKS)			\
 	gst/gstsegment				\
 	gst/gstsystemclock			\
 	gst/gstclock				\
+	gst/gststream				\
 	gst/gststructure			\
 	gst/gsttag				\
+	gst/gsttracerrecord		 		\
 	gst/gsttagsetter			\
 	gst/gsttask				\
 	gst/gsttoc				\
@@ -135,10 +152,18 @@ check_PROGRAMS =				\
 	libs/bitreader				\
 	libs/bytereader				\
 	libs/bytewriter				\
+	libs/bitreader-noinline		\
+	libs/bytereader-noinline	\
+	libs/bytewriter-noinline	\
+	libs/flowcombiner			\
+	libs/sparsefile				\
 	libs/collectpads			\
+	libs/gstharness				\
 	libs/gstnetclientclock			\
 	libs/gstnettimeprovider			\
+	libs/gsttestclock			\
 	libs/transform1				\
+	libs/transform2				\
 	tools/gstinspect
 
 # failing tests
@@ -169,8 +194,10 @@ noinst_HEADERS = \
 EXTRA_DIST = \
 	libs/test_transform.c
 
-AM_CFLAGS = $(GST_OBJ_CFLAGS) -UG_DISABLE_ASSERT -UG_DISABLE_CAST_CHECKS
-AM_CXXFLAGS = $(GST_OBJ_CXXFLAGS) -UG_DISABLE_ASSERT -UG_DISABLE_CAST_CHECKS
+AM_CFLAGS = $(PTHREAD_CFLAGS) $(GST_OBJ_CFLAGS) -UG_DISABLE_ASSERT -UG_DISABLE_CAST_CHECKS \
+	-DGST_CHECK_TEST_ENVIRONMENT_BEACON="\"GST_STATE_IGNORE_ELEMENTS\""
+AM_CXXFLAGS = $(GST_OBJ_CXXFLAGS) -UG_DISABLE_ASSERT -UG_DISABLE_CAST_CHECKS \
+	-DGST_CHECK_TEST_ENVIRONMENT_BEACON="\"GST_STATE_IGNORE_ELEMENTS\""
 LDADD = $(top_builddir)/libs/gst/check/libgstcheck-@GST_API_VERSION@.la \
 	$(top_builddir)/libs/gst/base/libgstbase-@GST_API_VERSION@.la \
 	$(GST_OBJ_LIBS)
@@ -179,7 +206,13 @@ gst_gstcpp_SOURCES = gst/gstcpp.cc
 
 libs_gstlibscpp_SOURCES = libs/gstlibscpp.cc
 
+gst_gsttracerrecord_CFLAGS = $(GST_OBJ_CFLAGS) $(AM_CFLAGS) -DGST_USE_UNSTABLE_API
+
 gst_gstutils_LDADD = $(LDADD) $(GSL_LIBS) $(GMP_LIBS)
+
+gst_gstprintf_LDADD = \
+	$(top_builddir)/gst/printf/libgstprintf.la \
+	$(LDADD)
 
 elements_fdsrc_CFLAGS=$(GST_OBJ_CFLAGS) $(AM_CFLAGS) \
 	-DTESTFILE=\"$(top_srcdir)/configure.ac\"
@@ -200,7 +233,7 @@ libs_gstnettimeprovider_LDADD = \
 # these just need valgrind fixing, period
 VALGRIND_TO_FIX = \
 	gst/gstinfo \
-	pipelines/parse-launch \
+	gst/gsttracerrecord \
 	tools/gstinspect
 
 VALGRIND_IGNORE = \

@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_MESSAGE_H__
@@ -33,11 +33,11 @@ typedef struct _GstMessage GstMessage;
  * only receive this message in the PLAYING state and every time it sets a
  * pipeline to PLAYING that is in the EOS state. The application can perform a
  * flushing seek in the pipeline, which will undo the EOS state again.
- * @GST_MESSAGE_ERROR: an error occured. When the application receives an error
+ * @GST_MESSAGE_ERROR: an error occurred. When the application receives an error
  * message it should stop playback of the pipeline and not assume that more
  * data will be played.
- * @GST_MESSAGE_WARNING: a warning occured.
- * @GST_MESSAGE_INFO: an info message occured
+ * @GST_MESSAGE_WARNING: a warning occurred.
+ * @GST_MESSAGE_INFO: an info message occurred
  * @GST_MESSAGE_TAG: a tag was found.
  * @GST_MESSAGE_BUFFERING: the pipeline is buffering. When the application
  * receives a buffering message in the PLAYING state for a non-live pipeline it
@@ -97,12 +97,36 @@ typedef struct _GstMessage GstMessage;
  *     e.g. when using playbin in gapless playback mode, to get notified when
  *     the next title actually starts playing (which will be some time after
  *     the URI for the next title has been set).
+ * @GST_MESSAGE_NEED_CONTEXT: Message indicating that an element wants a specific context (Since 1.2)
+ * @GST_MESSAGE_HAVE_CONTEXT: Message indicating that an element created a context (Since 1.2)
+ * @GST_MESSAGE_EXTENDED: Message is an extended message type (see below).
+ *     These extended message IDs can't be used directly with mask-based API
+ *     like gst_bus_poll() or gst_bus_timed_pop_filtered(), but you can still
+ *     filter for GST_MESSAGE_EXTENDED and then check the result for the
+ *     specific type. (Since 1.4)
+ * @GST_MESSAGE_DEVICE_ADDED: Message indicating a #GstDevice was added to
+ *     a #GstDeviceProvider (Since 1.4)
+ * @GST_MESSAGE_DEVICE_REMOVED: Message indicating a #GstDevice was removed
+ *     from a #GstDeviceProvider (Since 1.4)
+ * @GST_MESSAGE_PROPERTY_NOTIFY: Message indicating a #GObject property has
+ *     changed (Since 1.10)
+ * @GST_MESSAGE_STREAM_COLLECTION: Message indicating a new #GstStreamCollection
+ *     is available (Since 1.10)
+ * @GST_MESSAGE_STREAMS_SELECTED: Message indicating the active selection of
+ *     #GstStreams has changed (Since 1.10)
+ * @GST_MESSAGE_REDIRECT: Message indicating to request the application to
+ *     try to play the given URL(s). Useful if for example a HTTP 302/303
+ *     response is received with a non-HTTP URL inside. (Since 1.10)
  * @GST_MESSAGE_ANY: mask for all of the above messages.
  *
  * The different message types that are available.
  */
 /* NOTE: keep in sync with quark registration in gstmessage.c
  * NOTE: keep GST_MESSAGE_ANY a valid gint to avoid compiler warnings.
+ */
+/* FIXME: 2.0: Make it NOT flags, just a regular 1,2,3,4.. enumeration */
+/* FIXME: For GST_MESSAGE_ANY ~0 -> 0xffffffff see
+ *        https://bugzilla.gnome.org/show_bug.cgi?id=732633
  */
 typedef enum
 {
@@ -136,7 +160,16 @@ typedef enum
   GST_MESSAGE_TOC               = (1 << 26),
   GST_MESSAGE_RESET_TIME        = (1 << 27),
   GST_MESSAGE_STREAM_START      = (1 << 28),
-  GST_MESSAGE_ANY               = ~0
+  GST_MESSAGE_NEED_CONTEXT      = (1 << 29),
+  GST_MESSAGE_HAVE_CONTEXT      = (1 << 30),
+  GST_MESSAGE_EXTENDED          = (gint) (1u << 31),
+  GST_MESSAGE_DEVICE_ADDED      = GST_MESSAGE_EXTENDED + 1,
+  GST_MESSAGE_DEVICE_REMOVED    = GST_MESSAGE_EXTENDED + 2,
+  GST_MESSAGE_PROPERTY_NOTIFY   = GST_MESSAGE_EXTENDED + 3,
+  GST_MESSAGE_STREAM_COLLECTION = GST_MESSAGE_EXTENDED + 4,
+  GST_MESSAGE_STREAMS_SELECTED  = GST_MESSAGE_EXTENDED + 5,
+  GST_MESSAGE_REDIRECT          = GST_MESSAGE_EXTENDED + 6,
+  GST_MESSAGE_ANY               = (gint) (0xffffffff)
 } GstMessageType;
 
 #include <gst/gstminiobject.h>
@@ -146,8 +179,12 @@ typedef enum
 #include <gst/gststructure.h>
 #include <gst/gstquery.h>
 #include <gst/gsttoc.h>
+#include <gst/gstdevice.h>
+#include <gst/gststreamcollection.h>
 
-#define GST_TYPE_MESSAGE                         (gst_message_get_type())
+GST_EXPORT GType _gst_message_type;
+
+#define GST_TYPE_MESSAGE                         (_gst_message_type)
 #define GST_IS_MESSAGE(obj)                      (GST_IS_MINI_OBJECT_TYPE (obj, GST_TYPE_MESSAGE))
 #define GST_MESSAGE_CAST(obj)                    ((GstMessage*)(obj))
 #define GST_MESSAGE(obj)                         (GST_MESSAGE_CAST(obj))
@@ -169,6 +206,15 @@ typedef enum
  * Get the #GstMessageType of @message.
  */
 #define GST_MESSAGE_TYPE(message)       (GST_MESSAGE_CAST(message)->type)
+/**
+ * GST_MESSAGE_TYPE_IS_EXTENDED:
+ * @message: a #GstMessage
+ *
+ * Check if the message is in the extended message group
+ * Since: 1.4
+ */
+#define GST_MESSAGE_TYPE_IS_EXTENDED(message)       (!!(GST_MESSAGE_CAST(message)->type & GST_MESSAGE_EXTENDED))
+
 /**
  * GST_MESSAGE_TYPE_NAME:
  * @message: a #GstMessage
@@ -256,7 +302,7 @@ typedef enum {
  *          posted on the bus.
  *
  * The type of a %GST_MESSAGE_PROGRESS. The progress messages inform the
- * application of the status of assynchronous tasks.
+ * application of the status of asynchronous tasks.
  */
 typedef enum {
   GST_PROGRESS_TYPE_START    = 0,
@@ -305,10 +351,6 @@ GQuark          gst_message_type_to_quark       (GstMessageType type);
  *
  * Returns: @msg (for convenience when doing assignments)
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstMessage * gst_message_ref (GstMessage * msg);
-#endif
-
 static inline GstMessage *
 gst_message_ref (GstMessage * msg)
 {
@@ -322,10 +364,6 @@ gst_message_ref (GstMessage * msg)
  * Convenience macro to decrease the reference count of the message, possibly
  * freeing it.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC void gst_message_unref (GstMessage * msg);
-#endif
-
 static inline void
 gst_message_unref (GstMessage * msg)
 {
@@ -343,10 +381,6 @@ gst_message_unref (GstMessage * msg)
  *
  * MT safe
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstMessage * gst_message_copy (const GstMessage * msg);
-#endif
-
 static inline GstMessage *
 gst_message_copy (const GstMessage * msg)
 {
@@ -375,8 +409,8 @@ gst_message_copy (const GstMessage * msg)
 #define         gst_message_make_writable(msg)  GST_MESSAGE_CAST (gst_mini_object_make_writable (GST_MINI_OBJECT_CAST (msg)))
 /**
  * gst_message_replace:
- * @old_message: (inout) (transfer full): pointer to a pointer to a #GstMessage
- *     to be replaced.
+ * @old_message: (inout) (transfer full) (nullable): pointer to a
+ *     pointer to a #GstMessage to be replaced.
  * @new_message: (allow-none) (transfer none): pointer to a #GstMessage that will
  *     replace the message pointed to by @old_message.
  *
@@ -385,14 +419,10 @@ gst_message_copy (const GstMessage * msg)
  * in some cases), and the reference counts are updated appropriately (the old
  * message is unreffed, the new one is reffed).
  *
- * Either @new_message or the #GstMessage pointed to by @old_message may be NULL.
+ * Either @new_message or the #GstMessage pointed to by @old_message may be %NULL.
  *
- * Returns: TRUE if @new_message was different from @old_message
+ * Returns: %TRUE if @new_message was different from @old_message
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC gboolean gst_message_replace (GstMessage **old_message, GstMessage *new_message);
-#endif
-
 static inline gboolean
 gst_message_replace (GstMessage **old_message, GstMessage *new_message)
 {
@@ -419,15 +449,21 @@ GstMessage *    gst_message_new_eos             (GstObject * src) G_GNUC_MALLOC;
 /* ERROR */
 
 GstMessage *    gst_message_new_error           (GstObject * src, GError * error, const gchar * debug) G_GNUC_MALLOC;
+GstMessage *    gst_message_new_error_with_details (GstObject * src, GError * error, const gchar * debug, GstStructure * details) G_GNUC_MALLOC;
 void            gst_message_parse_error         (GstMessage *message, GError **gerror, gchar **debug);
+void            gst_message_parse_error_details (GstMessage *message, const GstStructure **structure);
 
 /* WARNING */
 GstMessage *    gst_message_new_warning         (GstObject * src, GError * error, const gchar * debug) G_GNUC_MALLOC;
+GstMessage *    gst_message_new_warning_with_details (GstObject * src, GError * error, const gchar * debug, GstStructure * details) G_GNUC_MALLOC;
 void            gst_message_parse_warning       (GstMessage *message, GError **gerror, gchar **debug);
+void            gst_message_parse_warning_details (GstMessage *message, const GstStructure **structure);
 
 /* INFO */
 GstMessage *    gst_message_new_info            (GstObject * src, GError * error, const gchar * debug) G_GNUC_MALLOC;
+GstMessage *    gst_message_new_info_with_details (GstObject * src, GError * error, const gchar * debug, GstStructure * details) G_GNUC_MALLOC;
 void            gst_message_parse_info          (GstMessage *message, GError **gerror, gchar **debug);
+void            gst_message_parse_info_details  (GstMessage *message, const GstStructure **structure);
 
 /* TAG */
 GstMessage *    gst_message_new_tag             (GstObject * src, GstTagList * tag_list) G_GNUC_MALLOC;
@@ -556,6 +592,50 @@ void            gst_message_parse_reset_time    (GstMessage *message, GstClockTi
 
 /* STREAM_START */
 GstMessage *    gst_message_new_stream_start    (GstObject * src) G_GNUC_MALLOC;
+
+void            gst_message_set_group_id        (GstMessage *message, guint group_id);
+gboolean        gst_message_parse_group_id      (GstMessage *message, guint *group_id);
+
+/* NEED_CONTEXT */
+GstMessage *    gst_message_new_need_context    (GstObject * src, const gchar * context_type) G_GNUC_MALLOC;
+gboolean        gst_message_parse_context_type  (GstMessage * message, const gchar ** context_type);
+
+/* HAVE_CONTEXT */
+GstMessage *    gst_message_new_have_context    (GstObject * src, GstContext *context) G_GNUC_MALLOC;
+void            gst_message_parse_have_context  (GstMessage *message, GstContext **context);
+
+/* DEVICE_ADDED */
+GstMessage *    gst_message_new_device_added    (GstObject * src, GstDevice * device) G_GNUC_MALLOC;
+void            gst_message_parse_device_added  (GstMessage * message, GstDevice ** device);
+
+/* DEVICE_REMOVED */
+GstMessage *    gst_message_new_device_removed    (GstObject * src, GstDevice * device) G_GNUC_MALLOC;
+void            gst_message_parse_device_removed  (GstMessage * message, GstDevice ** device);
+
+/* PROPERTY_NOTIFY */
+GstMessage *    gst_message_new_property_notify   (GstObject * src, const gchar * property_name, GValue * val) G_GNUC_MALLOC;
+void            gst_message_parse_property_notify (GstMessage * message, GstObject ** object, const gchar ** property_name, const GValue ** property_value);
+
+/* STREAM_COLLECTION */
+GstMessage *    gst_message_new_stream_collection   (GstObject * src, GstStreamCollection * collection) G_GNUC_MALLOC;
+void            gst_message_parse_stream_collection (GstMessage *message, GstStreamCollection **collection);
+
+/* STREAMS_SELECTED */
+GstMessage *    gst_message_new_streams_selected (GstObject *src, GstStreamCollection *collection);
+void            gst_message_streams_selected_add (GstMessage *message, GstStream *stream);
+void            gst_message_parse_streams_selected (GstMessage * message, GstStreamCollection **collection);
+guint           gst_message_streams_selected_get_size (GstMessage * message);
+GstStream      *gst_message_streams_selected_get_stream (GstMessage *message, guint idx);
+
+/* REDIRECT */
+GstMessage *    gst_message_new_redirect             (GstObject * src, const gchar * location, GstTagList * tag_list, const GstStructure * entry_struct) G_GNUC_MALLOC;
+void            gst_message_add_redirect_entry       (GstMessage * message, const gchar * location, GstTagList * tag_list, const GstStructure * entry_struct);
+void            gst_message_parse_redirect_entry     (GstMessage * message, gsize entry_index, const gchar ** location, GstTagList ** tag_list, const GstStructure ** entry_struct);
+gsize           gst_message_get_num_redirect_entries (GstMessage * message);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstMessage, gst_message_unref)
+#endif
 
 G_END_DECLS
 

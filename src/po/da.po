@@ -1,29 +1,28 @@
 # translation of gstreamer to Danish
-# Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+# Copyright (C) 2015 Free Software Foundation, Inc.
 # This file is distributed under the same license as the gstreamer package.
+# Mogens Jaeger <mogensjaeger@gmail.com>, 2007, 2010, 2013, 2014.
+# Joe Hansen <joedalton2@yahoo.dk>, 2015, 2016.
 #
-# Mogens Jæger <mogensjaeger@gmail.com>, 2010.
-# Mogens Jaeger <mogensjaeger@gmail.com>, 2007, 2010.
+# conductor -> dirigent (https://lists.freedesktop.org/archives/gstreamer-commits/2016-February/092542.html)
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: gstreamer 0.10.30.3\n"
+"Project-Id-Version: gstreamer 1.7.90\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
-"PO-Revision-Date: 2010-11-06 22:52+0100\n"
-"Last-Translator: Mogens Jaeger <mogensjaeger@gmail.com>\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
+"PO-Revision-Date: 2016-06-25 13:26+0200\n"
+"Last-Translator: Joe Hansen <joedalton2@yahoo.dk>\n"
 "Language-Team: Danish <dansk@dansk-gruppen.dk>\n"
 "Language: da\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-">\n"
-"\n"
-">\n"
 "Plural-Forms:  nplurals=2; plural=(n != 1);\n"
-"X-Generator: Lokalize 1.0\n"
+"X-Generator: Lokalize 1.5\n"
 
 msgid "Print the GStreamer version"
-msgstr "Udskriv Gstreamer versionsnummer"
+msgstr "Udskriv GStreamer-versionsnummer"
 
 msgid "Make all warnings fatal"
 msgstr "Gør alle advarsler fatale"
@@ -32,9 +31,9 @@ msgid "Print available debug categories and exit"
 msgstr "Udskriv tilgængelige fejlsøgningskategorier og afslut"
 
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
-"Standard fejlsøgningsniveau fra 1 (kun fejl) til 5 (alt) eller 0 for ingen "
+"Standard fejlsøgningsniveau fra 1 (kun fejl) til 9 (alt) eller 0 for ingen "
 "uddata"
 
 msgid "LEVEL"
@@ -52,13 +51,20 @@ msgid "LIST"
 msgstr "LISTE"
 
 msgid "Disable colored debugging output"
-msgstr "Déaktiver brug af farver ved fejlsøgnings uddata"
+msgstr "Deaktiver brug af farver ved fejlsøgnings uddata"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
+"Ændrer farvelægningstilstand  af debug-log. Mulige tilstande: til fra, "
+"deaktiveret, auto, unix"
 
 msgid "Disable debugging"
-msgstr "Déaktiver fejlsøgning"
+msgstr "Deaktiver fejlsøgning"
 
 msgid "Enable verbose plugin loading diagnostics"
-msgstr "Aktivér udførlig diagnostik ved indlæsning af moduler"
+msgstr "Aktiver udførlig diagnostik ved indlæsning af moduler"
 
 msgid "Colon-separated paths containing plugins"
 msgstr "Kolon-separerede stier der indeholder moduler"
@@ -77,19 +83,19 @@ msgid "PLUGINS"
 msgstr "MODULER"
 
 msgid "Disable trapping of segmentation faults during plugin loading"
-msgstr "Déaktiver indfangning af segmentfejl under indlæsning af moduler"
+msgstr "Deaktiver indfangning af segmentfejl under indlæsning af moduler"
 
 msgid "Disable updating the registry"
-msgstr "Déaktiver opdatering af registratur"
+msgstr "Deaktiver opdatering af registratur"
 
 msgid "Disable spawning a helper process while scanning the registry"
-msgstr "Déaktiver forgrening af hjælpeproces under skanning af registratur"
+msgstr "Deaktiver forgrening af hjælpeproces under skanning af registratur"
 
 msgid "GStreamer Options"
 msgstr "GStreamer indstillinger"
 
 msgid "Show GStreamer Options"
-msgstr "Vis Gstreamer indstillinger"
+msgstr "Vis GStreamer-indstillinger"
 
 msgid "Unknown option"
 msgstr "Ukendt indstilling"
@@ -118,9 +124,8 @@ msgstr "Intern GStreamer fejl: kontaktproblem."
 msgid "Internal GStreamer error: thread problem."
 msgstr "Intern GStreamer fejl: problem med tråd."
 
-#, fuzzy
 msgid "GStreamer error: negotiation problem."
-msgstr "Intern GStreamer fejl: forhandlingsproblem."
+msgstr "GStreamer fejl: forhandlingsproblem."
 
 msgid "Internal GStreamer error: event problem."
 msgstr "Intern GStreamer fejl: hændelsesproblem."
@@ -137,9 +142,8 @@ msgstr "Intern GStreamer fejl: mærkatproblem."
 msgid "Your GStreamer installation is missing a plug-in."
 msgstr "Din GStreamer-installation mangler et modul."
 
-#, fuzzy
 msgid "GStreamer error: clock problem."
-msgstr "Intern GStreamer fejl: tidsproblem."
+msgstr "GStreamer fejl: tidsproblem."
 
 msgid ""
 "This application is trying to use GStreamer functionality that has been "
@@ -202,6 +206,9 @@ msgstr "Kunne ikke hente/sætte indstillinger fra/på ressource."
 msgid "No space left on the resource."
 msgstr "Der er ikke mere ledig plads på ressourcen."
 
+msgid "Not authorized to access resource."
+msgstr "Ikke autoriseret til at tilgå ressourcen."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer opdagede en generel fejl i mediestrømmen."
 
@@ -256,6 +263,10 @@ msgstr "Ingen standard fejlmeddelelse for domæne %s og kode %d."
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "Valgt tid kan ikke bruges i rørledningen."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr "Kunne ikke skrive registraturcache til %s: %s"
 
 msgid "title"
 msgstr "titel"
@@ -409,12 +420,11 @@ msgstr "URI med ophavsret"
 msgid "URI to the copyright notice of the data"
 msgstr "URI til ophavsretsnotits for dataene"
 
-#, fuzzy
 msgid "encoded by"
-msgstr "indkoder"
+msgstr "indkodet af"
 
 msgid "name of the encoding person or organization"
-msgstr ""
+msgstr "navn på indkodende person eller organisation"
 
 msgid "contact"
 msgstr "kontakt"
@@ -445,6 +455,16 @@ msgstr "komponist"
 
 msgid "person(s) who composed the recording"
 msgstr "person(er) der komponerede optagelsen"
+
+msgid "conductor"
+msgstr "dirigent"
+
+# Jeg tror "refinement" refererer til at de skelner bedre mellem hvem
+# der dirigerer og opfører.  F.eks. står der oftest navne på dirigent
+# samt solister i koncerter, og/eller de vigtigste sangere (opera osv.)
+# Måske man kan erstatte det med -angivelse eller noget andet indirekte.  Ideer?
+msgid "conductor/performer refinement"
+msgstr "dirigent/opfører-angivelse"
 
 msgid "duration"
 msgstr "varighed"
@@ -557,16 +577,16 @@ msgstr "referenceniveau for spor og albums forstærkningsværdier"
 msgid "language code"
 msgstr "sprogkode"
 
-#, fuzzy
 msgid "language code for this stream, conforming to ISO-639-1 or ISO-639-2"
-msgstr "sprogkode for denne mediestrøm, i overensstemmelse med ISO-639-1"
+msgstr ""
+"sprogkode for denne mediestrøm, i overensstemmelse med ISO-639-1 eller "
+"ISO-639-2"
 
-#, fuzzy
 msgid "language name"
-msgstr "sprogkode"
+msgstr "sprognavn"
 
 msgid "freeform name of the language this stream is in"
-msgstr ""
+msgstr "friform navn på det sprog denne mediestrøm er i"
 
 msgid "image"
 msgstr "billede"
@@ -656,13 +676,12 @@ msgstr "by (dansk navn) hvor mediet er blevet optaget eller produceret"
 msgid "geo location sublocation"
 msgstr "geografisk underinddeling"
 
-#, fuzzy
 msgid ""
 "a location within a city where the media has been produced or created (e.g. "
 "the neighborhood)"
 msgstr ""
-"en stedangivelse inden for en by hvor mediet er blevet optaget eller "
-"produceret"
+"en stedangivelse indenfor en by hvor mediet er blevet optaget eller "
+"produceret (f.eks. nabolaget)"
 
 msgid "geo location horizontal error"
 msgstr "geografisk placering horisontalfejl"
@@ -701,7 +720,7 @@ msgstr ""
 
 #. TRANSLATORS: 'show name' = 'TV/radio/podcast show name' here
 msgid "show name"
-msgstr "Udsendelsens navn"
+msgstr "udsendelsens navn"
 
 msgid "Name of the tv/podcast/series show the media is from"
 msgstr "Navnet på serien tv- eller podcastudsendelsen mediet stammer fra"
@@ -723,7 +742,7 @@ msgid "The episode number in the season the media is part of"
 msgstr "Episodenumme i den årgang mediet stammer fra"
 
 msgid "season number"
-msgstr "Sæsonnummer"
+msgstr "sæsonnummer"
 
 msgid "The season number of the show the media is part of"
 msgstr "Sæsonnummeret som udsendelsen i mediet stammer fra"
@@ -783,7 +802,7 @@ msgid "application data"
 msgstr "programdata"
 
 msgid "Arbitrary application data to be serialized into the media"
-msgstr "vilkårlige programdata der skal gemmes i mediet"
+msgstr "Vilkårlige programdata der skal gemmes i mediet"
 
 msgid "image orientation"
 msgstr "billedets orientering"
@@ -791,8 +810,40 @@ msgstr "billedets orientering"
 msgid "How the image should be rotated or flipped before display"
 msgstr "Hvordan et billede skal roteres eller vendes før visning"
 
+msgid "publisher"
+msgstr "udgiver"
+
+msgid "Name of the label or publisher"
+msgstr "Mærke eller udgiver navn"
+
+msgid "interpreted-by"
+msgstr "fortolket-af"
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr "Information om personerne bag et remix og lignende fortolkninger"
+
+msgid "midi-base-note"
+msgstr "midi-base-node"
+
+msgid "Midi note number of the audio track."
+msgstr "Midi-nodenummer på lydsporet."
+
+msgid "private-data"
+msgstr "private-data"
+
+msgid "Private data"
+msgstr "Private data"
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr "Ingen URI fortolker fundet til %s protokollen"
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr "URI skemaet '%s' er ikke understøttet"
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -807,12 +858,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "specificeret tomt lager \"%s\", er ikke tilladt"
+msgid "link has no source [sink=%s@%p]"
+msgstr "Henvisningen har ingen kilde [sink=%s@%p]"
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "intet lager \"%s\", sprunget over"
+msgid "link has no sink [source=%s@%p]"
+msgstr "Henvisningen har ingen destination [kilde=%s@%p]"
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -821,6 +872,9 @@ msgstr "ingen egenskab \"%s\" for element \"%s\""
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "kunne ikke sætte egenskab \"%s\" for element \"%s\" til \"%s\""
+
+msgid "Delayed linking failed."
+msgstr "Forsinket oprettelse af forbindelse mislykkedes."
 
 #, c-format
 msgid "could not link %s to %s"
@@ -831,42 +885,38 @@ msgid "no element \"%s\""
 msgstr "intet element \"%s\""
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr "uventet reference \"%s\" - ignorerer"
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr "uventet pad-reference \"%s\" - ignorerer"
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "kunne ikke tolke kapabiliteten \"%s\""
-
-msgid "link without source element"
-msgstr "lænke uden kilde-element"
-
-msgid "link without sink element"
-msgstr "lænke uden udgangselement"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "intet kildeelement for URI \"%s\""
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "intet element at lænke URI \"%s\" til"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "intet udgangselement for URI \"%s\""
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "kunne ikke lænke udgangselement for URI \"%s\""
+msgid "no source element for URI \"%s\""
+msgstr "intet kildeelement for URI \"%s\""
+
+msgid "syntax error"
+msgstr "syntaksfejl"
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "specificeret tomt lager \"%s\", er ikke tilladt"
+
+#, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "intet lager \"%s\", udpakker elementer"
 
 msgid "empty pipeline not allowed"
 msgstr "tom rørledning ikke tilladt"
-
-msgid "Internal clock error."
-msgstr "Fejl i internt ur."
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr "Intern datastrømsfejl."
 
 msgid "A lot of buffers are being dropped."
 msgstr "En masse af bufferens indhold smides væk."
@@ -874,8 +924,17 @@ msgstr "En masse af bufferens indhold smides væk."
 msgid "Internal data flow problem."
 msgstr "Intern datastrømsproblem."
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
 msgstr "Intern datastrømsfejl."
+
+msgid "Internal clock error."
+msgstr "Fejl i internt ur."
+
+# Ingen idé om hvad de mener med map her, men "behandling" eller
+# muligvis kortlægge kunne også dække.  Men det kan sagtens ske at
+# oversætte virker også...
+msgid "Failed to map buffer."
+msgstr "Fejlede ved behandling af buffer."
 
 msgid "Filter caps"
 msgstr "Filterkapabilitet"
@@ -886,6 +945,26 @@ msgid ""
 msgstr ""
 "Begræns den mulige tilladte kapabilitet (NUL betyder ALT). Sættes denne "
 "egenskab gives en reference til det leverede GstCaps objekt."
+
+msgid "Caps Change Mode"
+msgstr "Caps-ændringstilstand"
+
+msgid "Filter caps change behaviour"
+msgstr "Filtrer caps-ændringsopførsel"
+
+msgid "No Temp directory specified."
+msgstr "Der er ikke angivet en mappe til midlertidige filer."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Kunne ikke oprette den midlertidige fil \"%s\"."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Kunne ikke åbne filen \"%s\" for læsning."
+
+msgid "Error while writing to download file."
+msgstr "Fejl under skrivning til downloadfilen."
 
 msgid "No file name specified for writing."
 msgstr "Intet filnavn specificeret for skrivning."
@@ -910,10 +989,6 @@ msgid "No file name specified for reading."
 msgstr "Intet filnavn specificeret for læsning."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Kunne ikke åbne filen \"%s\" for læsning."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Kunne ikke hente info til \"%s\"."
 
@@ -927,16 +1002,6 @@ msgstr "Filen \"%s\" er en sokkel."
 
 msgid "Failed after iterations as requested."
 msgstr "Fejlede efter iterationer som forespurgt."
-
-msgid "No Temp directory specified."
-msgstr "Der er ikke angivet en mappe til midlertidige filer."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Kunne ikke oprette den midlertidige fil \"%s\"."
-
-msgid "Error while writing to download file."
-msgstr "Fejl under skrivning til downloadfilen."
 
 msgid "caps"
 msgstr "kapabiliteter"
@@ -954,17 +1019,23 @@ msgstr "gennemtving kapabiliteter"
 msgid "force caps without doing a typefind"
 msgstr "gennemtving kapabiliteter uden at gennemføre en typefind"
 
+msgid "Stream doesn't contain enough data."
+msgstr "Strøm indeholder ikke nok data."
+
 msgid "Stream contains no data."
-msgstr "Mediestrøm indeholder ingen data"
+msgstr "Mediestrøm indeholder ingen data."
 
 msgid "Implemented Interfaces:\n"
-msgstr "Implementerede Grænseflader:\n"
+msgstr "Implementerede grænseflader:\n"
 
 msgid "readable"
 msgstr "læselig"
 
 msgid "writable"
 msgstr "som kan skrives"
+
+msgid "deprecated"
+msgstr "forældet"
 
 msgid "controllable"
 msgstr "kontrollerbar"
@@ -1030,12 +1101,14 @@ msgid "List the plugin contents"
 msgstr "Oplist udvidelsesmodulets indhold"
 
 msgid "Check if the specified element or plugin exists"
-msgstr ""
+msgstr "Kontroller om det angivne element eller plugin eksisterer"
 
 msgid ""
 "When checking if an element or plugin exists, also check that its version is "
 "at least the version specified"
 msgstr ""
+"Ved kontrol af om et element eller et plugin eksisterer, kontroller da også "
+"om versionen i det mindste er den specificerede version"
 
 msgid "Print supported URI schemes, with the elements that implement them"
 msgstr ""
@@ -1051,7 +1124,7 @@ msgid "No such element or plugin '%s'\n"
 msgstr "Et sådant element eller plugin findes ikke '%s'\n"
 
 msgid "Index statistics"
-msgstr ""
+msgstr "Indeks statistikker"
 
 #, c-format
 msgid "Got message #%u from element \"%s\" (%s): "
@@ -1088,17 +1161,16 @@ msgstr "FUNDET MÆRKAT       : fundet af objektet \"%s\".\n"
 msgid "FOUND TAG\n"
 msgstr "FUNDET MÆRKAT\n"
 
-#, fuzzy, c-format
+#, c-format
 msgid "FOUND TOC      : found by element \"%s\".\n"
-msgstr "FUNDET MÆRKAT       : fundet af element \"%s\".\n"
+msgstr "FUNDET TOC       : fundet af element \"%s\".\n"
 
-#, fuzzy, c-format
+#, c-format
 msgid "FOUND TOC      : found by object \"%s\".\n"
-msgstr "FUNDET MÆRKAT       : fundet af objektet \"%s\".\n"
+msgstr "FUNDET TOC       : fundet af objektet \"%s\".\n"
 
-#, fuzzy
 msgid "FOUND TOC\n"
-msgstr "FUNDET MÆRKAT\n"
+msgstr "FUNDET TOC\n"
 
 #, c-format
 msgid ""
@@ -1115,6 +1187,10 @@ msgstr "ADVARSEL: fra element %s: %s\n"
 # Ingen anelse
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr "Prerolled, venter på at bufferingen slutter...\n"
+
+# Ingen anelse
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr "Prerolled, venter på at fremdrift afslutter...\n"
 
 msgid "buffering..."
 msgstr "indlæser i buffer..."
@@ -1135,15 +1211,23 @@ msgstr "Sætter tilstand til %s som krævet af %s...\n"
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Afbrydelse: Stopper rørledning...\n"
 
-#, fuzzy, c-format
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr "Fremdrift: (%s) %s\n"
+
+#, c-format
 msgid "Missing element: %s\n"
-msgstr "intet element \"%s\""
+msgstr "Manglende element: %s\n"
+
+#, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "Fik kontekst fra element '%s': %s=%s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Uddatamærkater (også kendt som metadata)"
 
 msgid "Output TOC (chapters and editions)"
-msgstr ""
+msgstr "Uddata TOC (kapitler og versioner)"
 
 msgid "Output status information and property notifications"
 msgstr "Uddata statusinformation og egenskabsmeddelelser"
@@ -1154,20 +1238,24 @@ msgstr "Udskriv ikke information om fremskridt"
 msgid "Output messages"
 msgstr "Uddatameddelelser"
 
-msgid "Do not output status information of TYPE"
-msgstr "Send ikke statusinformation af TYPE ud"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
+"Vis ikke statusinformation for den specificerede egenskab hvis uddybende "
+"uddata er aktiveret (kan bruges flere gange)"
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TYPE1,TYPE2,..."
+msgid "PROPERTY-NAME"
+msgstr "EGENSKABSNAVN"
 
 msgid "Do not install a fault handler"
-msgstr "Installér ikke en fejlhåndterer"
+msgstr "Installer ikke en fejlhåndterer"
 
 msgid "Force EOS on sources before shutting the pipeline down"
 msgstr "Gennemtving medieslut på kilder før nedlukning af rørledning"
 
 msgid "Gather and print index statistics"
-msgstr ""
+msgstr "Saml og udskriv indeks statistikker"
 
 #, c-format
 msgid "ERROR: pipeline could not be constructed: %s.\n"
@@ -1211,10 +1299,8 @@ msgid "EOS on shutdown enabled -- Forcing EOS on the pipeline\n"
 msgstr ""
 "Medieslut ved nedlukning aktiveret -- Gennemtving medieslut på rørledningen\n"
 
-#, fuzzy
 msgid "EOS on shutdown enabled -- waiting for EOS after Error\n"
-msgstr ""
-"Medieslut ved nedlukning aktiveret -- Gennemtving medieslut på rørledningen\n"
+msgstr "EOS ved nedlukning aktiveret -- venter på EOS efter Fejl\n"
 
 msgid "Waiting for EOS...\n"
 msgstr "Venter på medieslut...\n"
@@ -1222,12 +1308,11 @@ msgstr "Venter på medieslut...\n"
 msgid "EOS received - stopping pipeline...\n"
 msgstr "Medieslut modtaget - stopper rørledning...\n"
 
-#, fuzzy
 msgid "Interrupt while waiting for EOS - stopping pipeline...\n"
-msgstr "Afbrydelse: Stopper rørledning...\n"
+msgstr "Afbrydelse afventende EOS  - stopper rørledning...\n"
 
 msgid "An error happened while waiting for EOS\n"
-msgstr "En fejl opstod mens der ventedes på medieslut\n"
+msgstr "Der opstod en fejl mens der ventedes på medieslut\n"
 
 msgid "Execution ended after %"
 msgstr "Udførsel afsluttet efter %"
@@ -1241,58 +1326,8 @@ msgstr "Rørledning sættes til NUL ...\n"
 msgid "Freeing pipeline ...\n"
 msgstr "Rørledning frigøres ...\n"
 
-#~ msgid "Print alloc trace (if enabled at compile time)"
-#~ msgstr "Udskriv allokeringsspor (hvis tilladt på oversættelsestidspunktet)"
+#~ msgid "bin"
+#~ msgstr "lager"
 
-#~ msgid "Usage: gst-xmllaunch <file.xml> [ element.property=value ... ]\n"
-#~ msgstr "Brug: gst-xmllaunch <file.xml> [ element.property=value ... ]\n"
-
-#~ msgid "ERROR: parse of xml file '%s' failed.\n"
-#~ msgstr "FEJL: tolkning af XML fil '%s' mislykkedes.\n"
-
-#~ msgid "ERROR: no toplevel pipeline element in file '%s'.\n"
-#~ msgstr "FEJL: intet topniveau rørledningselement i fil '%s'.\n"
-
-#~ msgid "WARNING: only one toplevel element is supported at this time.\n"
-#~ msgstr ""
-#~ "ADVARSEL: der understøttes kun ét topniveauelement på nuværende "
-#~ "tidspunkt.\n"
-
-#~ msgid "ERROR: could not parse command line argument %d: %s.\n"
-#~ msgstr "FEJL: kunne ikke tolke kommandolinieargumenetet %d: %s.\n"
-
-#~ msgid "WARNING: element named '%s' not found.\n"
-#~ msgstr "ADVARSEL: elementet ved navn '%s' blev ikke fundet.\n"
-
-#~ msgid "Save xml representation of pipeline to FILE and exit"
-#~ msgstr "Gem XML-repræsentation af rørledning til FIL og afslut"
-
-#~ msgid "FILE"
-#~ msgstr "FIL"
-
-#~ msgid "Do not install signal handlers for SIGUSR1 and SIGUSR2"
-#~ msgstr "Undlad installering af signalhåndtering for SIGUSR1 og SIGUSR2"
-
-#~ msgid "Error writing registry cache to %s: %s"
-#~ msgstr "Kunne ikke skrive registraturcache til %s: %s"
-
-#~ msgid "Error re-scanning registry %s: %s"
-#~ msgstr "Kunne ikke genskanne registratur %s: %s"
-
-#~ msgid "Error re-scanning registry %s"
-#~ msgstr "Kunne ikke genskanne registratur %s"
-
-#~ msgid "Internal GStreamer error: state change failed."
-#~ msgstr "Intern GStreamer fejl: tilstandsændring mislykkedes."
-
-#~ msgid "original location of file as a URI"
-#~ msgstr "oprindeligt sted for en fil som en URI"
-
-#~ msgid "Error while writing to file descriptor \"%d\"."
-#~ msgstr "Fejl under skrivning til filbeskriver \"%d\"."
-
-#~ msgid "File descriptor \"%d\" is not valid."
-#~ msgstr "Filbeskriver \"%d\" er ugyldig."
-
-#~ msgid "FREEING pipeline ...\n"
-#~ msgstr "Rørledning renses ...\n"
+#~ msgid "Internal data stream error."
+#~ msgstr "Intern datastrømsfejl."

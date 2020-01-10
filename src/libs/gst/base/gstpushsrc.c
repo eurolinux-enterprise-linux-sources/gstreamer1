@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -44,8 +44,6 @@
  *
  * Seeking, flushing, scheduling and sync is all handled by this
  * base class.
- *
- * Last reviewed on 2006-07-04 (0.10.9)
  */
 
 #ifdef HAVE_CONFIG_H

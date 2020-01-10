@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.8.4\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2004-08-07 23:46+0200\n"
 "Last-Translator: Laurent Dhima <laurenti@alblinux.net>\n"
 "Language-Team: Albanian <begraj@hotmail.com>\n"
@@ -25,8 +25,9 @@ msgstr "Bëj që të gjithë paralajmërimet të jenë fatale"
 msgid "Print available debug categories and exit"
 msgstr "Printo kategoritë e debug në dispozicion dhe dil"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Niveli i prezgjedhur i debug nga 1 (vetëm gabimi) në 5 (gjithçka) ose 0 për "
 "jo output"
@@ -47,6 +48,11 @@ msgstr "LISTË"
 
 msgid "Disable colored debugging output"
 msgstr "Ç'aktivo output shumëngjyrësh të debug"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Ç'aktivo debug"
@@ -207,6 +213,10 @@ msgid "No space left on the resource."
 msgstr ""
 
 #, fuzzy
+msgid "Not authorized to access resource."
+msgstr "I pamundur hkrimi në burim."
+
+#, fuzzy
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer ndeshi në një gabim të përgjithshëm të librarisë bazë."
 
@@ -256,6 +266,10 @@ msgid "No standard error message for domain %s and code %d."
 msgstr "Asnjë mesazh gabimi standart për domain %s dhe kodin %d."
 
 msgid "Selected clock cannot be used in pipeline."
+msgstr ""
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
 msgstr ""
 
 msgid "title"
@@ -458,6 +472,12 @@ msgstr ""
 #, fuzzy
 msgid "person(s) who composed the recording"
 msgstr "personi(at) përgjegjës për regjistrimin"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr "kohëzgjatja"
@@ -805,8 +825,40 @@ msgstr ""
 msgid "How the image should be rotated or flipped before display"
 msgstr ""
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -821,12 +873,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "u specifikua bin bosh \"%s\", nuk lejohet"
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "asnjë bin \"%s\", u kapërcye"
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -835,6 +887,9 @@ msgstr "asnjë pronësi \"%s\" tek elementi \"%s\""
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "e pamundur vendosja e pronësisë \"%s\" tek elementi \"%s\" në \"%s"
+
+msgid "Delayed linking failed."
+msgstr ""
 
 #, c-format
 msgid "could not link %s to %s"
@@ -845,42 +900,38 @@ msgid "no element \"%s\""
 msgstr "asnjë element \"%s\""
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "i pamundur analizimi i caps \"%s\""
-
-msgid "link without source element"
-msgstr "lidhje ma element burues"
-
-msgid "link without sink element"
-msgstr "lidhje pa elementin sink"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "asnjë element burues për URI \"%s\""
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "asnjë element për të lidhur URI \"%s\" me"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "asnjë element shpërndarës për URI \"%s\""
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "e pamundur lidhja e elementit sink për URI \"%s\""
+msgid "no source element for URI \"%s\""
+msgstr "asnjë element burues për URI \"%s\""
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "u specifikua bin bosh \"%s\", nuk lejohet"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "asnjë bin \"%s\", u kapërcye"
 
 msgid "empty pipeline not allowed"
 msgstr "nuk lejohet konduktori bosh"
-
-msgid "Internal clock error."
-msgstr ""
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr ""
 
 msgid "A lot of buffers are being dropped."
 msgstr ""
@@ -888,7 +939,13 @@ msgstr ""
 msgid "Internal data flow problem."
 msgstr ""
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
+msgstr ""
+
+msgid "Internal clock error."
+msgstr ""
+
+msgid "Failed to map buffer."
 msgstr ""
 
 msgid "Filter caps"
@@ -898,6 +955,27 @@ msgid ""
 "Restrict the possible allowed capabilities (NULL means ANY). Setting this "
 "property takes a reference to the supplied GstCaps object."
 msgstr ""
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr ""
+
+#, fuzzy, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "E pamundur marrja/vendosja e rregullimeve nga/në burim."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "E pamundur hapja e file \"%s\" për lexim."
+
+#, fuzzy
+msgid "Error while writing to download file."
+msgstr "Gabim gjatë shkrimit tek file \"%s\"."
 
 msgid "No file name specified for writing."
 msgstr "Nuk është përcaktuar asnjë emër file për tu shkruar."
@@ -921,10 +999,6 @@ msgstr "Gabim gjatë shkrimit tek file \"%s\"."
 msgid "No file name specified for reading."
 msgstr "Nuk është përcaktuar asnjë emër file për tu lexuar."
 
-#, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "E pamundur hapja e file \"%s\" për lexim."
-
 #, fuzzy, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "E pamundur marrja/vendosja e rregullimeve nga/në burim."
@@ -939,17 +1013,6 @@ msgstr "File \"%s\" është një socket."
 
 msgid "Failed after iterations as requested."
 msgstr "Dështoi mbas përsëritjeve sikurse të kërkuara."
-
-msgid "No Temp directory specified."
-msgstr ""
-
-#, fuzzy, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "E pamundur marrja/vendosja e rregullimeve nga/në burim."
-
-#, fuzzy
-msgid "Error while writing to download file."
-msgstr "Gabim gjatë shkrimit tek file \"%s\"."
 
 msgid "caps"
 msgstr "mbrojtëse"
@@ -967,6 +1030,10 @@ msgid "force caps without doing a typefind"
 msgstr ""
 
 #, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "albumi që përmban këtë të dhënë"
+
+#, fuzzy
 msgid "Stream contains no data."
 msgstr "albumi që përmban këtë të dhënë"
 
@@ -979,6 +1046,9 @@ msgstr ""
 #, fuzzy
 msgid "writable"
 msgstr "titulli"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr ""
@@ -1120,6 +1190,9 @@ msgstr "GABIM: nga elementi %s: %s\n"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr ""
 
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+
 msgid "buffering..."
 msgstr ""
 
@@ -1139,9 +1212,17 @@ msgstr ""
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr ""
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "asnjë element \"%s\""
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "GABIM: nga elementi %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Tags e output (njohur gjithashtu si metadata)"
@@ -1159,11 +1240,13 @@ msgstr "Mos jep informacionin e gjendjes së LLOJIT"
 msgid "Output messages"
 msgstr ""
 
-msgid "Do not output status information of TYPE"
-msgstr "Mos jep informacionin e gjendjes së LLOJIT"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "LLOJI1,LLOJI2,..."
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr "Mos instalo një ushqyes të dëmtuar"
@@ -1244,6 +1327,24 @@ msgstr ""
 #, fuzzy
 msgid "Freeing pipeline ...\n"
 msgstr "DUKE ZBATUAR pipeline ...\n"
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "Mos jep informacionin e gjendjes së LLOJIT"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "LLOJI1,LLOJI2,..."
+
+#~ msgid "link without source element"
+#~ msgstr "lidhje ma element burues"
+
+#~ msgid "link without sink element"
+#~ msgstr "lidhje pa elementin sink"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "asnjë element për të lidhur URI \"%s\" me"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "e pamundur lidhja e elementit sink për URI \"%s\""
 
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr "Printo shenjat e alloc (nëse aktivuar në kohën e kompilimit)"

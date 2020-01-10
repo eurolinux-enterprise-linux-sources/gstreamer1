@@ -15,13 +15,16 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
 #ifndef __GST_META_H__
 #define __GST_META_H__
+
+#include <glib.h>
+#include <gst/gstbuffer.h>
 
 G_BEGIN_DECLS
 
@@ -80,6 +83,15 @@ typedef enum {
  * Clears a metadata flag.
  */
 #define GST_META_FLAG_UNSET(meta,flag)         (GST_META_FLAGS (meta) &= ~(flag))
+
+/**
+ * GST_META_TAG_MEMORY_STR:
+ *
+ * This metadata stays relevant as long as memory layout is unchanged.
+ *
+ * Since: 1.2
+ */
+#define GST_META_TAG_MEMORY_STR "memory"
 
 /**
  * GstMeta:
@@ -166,8 +178,8 @@ typedef gboolean (*GstMetaTransformFunction) (GstBuffer *transbuf,
 
 /**
  * GstMetaInfo:
- * @api: tag indentifying the metadata structure and api
- * @type: type indentifying the implementor of the api
+ * @api: tag identifying the metadata structure and api
+ * @type: type identifying the implementor of the api
  * @size: size of the metadata
  * @init_func: function for initializing the metadata
  * @free_func: function for freeing the metadata
@@ -199,6 +211,7 @@ const GstMetaInfo *  gst_meta_register          (GType api, const gchar *impl,
                                                  GstMetaFreeFunction      free_func,
                                                  GstMetaTransformFunction transform_func);
 const GstMetaInfo *  gst_meta_get_info          (const gchar * impl);
+const gchar* const*  gst_meta_api_type_get_tags (GType api);
 
 /* some default tags */
 GST_EXPORT GQuark _gst_meta_tag_memory;
@@ -208,8 +221,13 @@ GST_EXPORT GQuark _gst_meta_tag_memory;
  *
  * Metadata tagged with this tag depends on the particular memory
  * or buffer that it is on.
+ *
+ * Deprecated: The GQuarks are not exported by any public API, use
+ *   GST_META_TAG_MEMORY_STR instead.
  */
+#ifndef GST_DISABLE_DEPRECATED
 #define GST_META_TAG_MEMORY (_gst_meta_tag_memory)
+#endif
 
 G_END_DECLS
 

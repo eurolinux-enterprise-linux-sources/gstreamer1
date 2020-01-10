@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -25,7 +25,7 @@
  * @see_also: #GstMemory
  *
  * Memory is usually created by allocators with a gst_allocator_alloc()
- * method call. When NULL is used as the allocator, the default allocator will
+ * method call. When %NULL is used as the allocator, the default allocator will
  * be used.
  *
  * New allocators can be registered with gst_allocator_register().
@@ -35,8 +35,6 @@
  *
  * New memory can be created with gst_memory_new_wrapped() that wraps the memory
  * allocated elsewhere.
- *
- * Last reviewed on 2012-07-09 (0.11.3)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -58,15 +56,15 @@ struct _GstAllocatorPrivate
 };
 
 #if defined(MEMORY_ALIGNMENT_MALLOC)
-size_t gst_memory_alignment = 7;
+gsize gst_memory_alignment = 7;
 #elif defined(MEMORY_ALIGNMENT_PAGESIZE)
 /* we fill this in in the _init method */
-size_t gst_memory_alignment = 0;
+gsize gst_memory_alignment = 0;
 #elif defined(MEMORY_ALIGNMENT)
-size_t gst_memory_alignment = MEMORY_ALIGNMENT - 1;
+gsize gst_memory_alignment = MEMORY_ALIGNMENT - 1;
 #else
 #error "No memory alignment configured"
-size_t gst_memory_alignment = 0;
+gsize gst_memory_alignment = 0;
 #endif
 
 /* the default allocator */
@@ -95,6 +93,7 @@ _fallback_mem_copy (GstMemory * mem, gssize offset, gssize size)
   GstMemory *copy;
   GstMapInfo sinfo, dinfo;
   GstAllocationParams params = { 0, mem->align, 0, 0, };
+  GstAllocator *allocator;
 
   if (!gst_memory_map (mem, &sinfo, GST_MAP_READ))
     return NULL;
@@ -103,7 +102,11 @@ _fallback_mem_copy (GstMemory * mem, gssize offset, gssize size)
     size = sinfo.size > offset ? sinfo.size - offset : 0;
 
   /* use the same allocator as the memory we copy  */
-  copy = gst_allocator_alloc (mem->allocator, size, &params);
+  allocator = mem->allocator;
+  if (GST_OBJECT_FLAG_IS_SET (allocator, GST_ALLOCATOR_FLAG_CUSTOM_ALLOC))
+    allocator = NULL;
+  copy = gst_allocator_alloc (allocator, size, &params);
+
   if (!gst_memory_map (copy, &dinfo, GST_MAP_WRITE)) {
     GST_CAT_WARNING (GST_CAT_MEMORY, "could not write map memory %p", copy);
     gst_allocator_free (mem->allocator, copy);
@@ -207,19 +210,22 @@ gst_allocator_register (const gchar * name, GstAllocator * allocator)
       allocator, name);
 
   g_rw_lock_writer_lock (&lock);
+  /* The ref will never be released */
+  GST_OBJECT_FLAG_SET (allocator, GST_OBJECT_FLAG_MAY_BE_LEAKED);
   g_hash_table_insert (allocators, (gpointer) name, (gpointer) allocator);
   g_rw_lock_writer_unlock (&lock);
 }
 
 /**
  * gst_allocator_find:
- * @name: the name of the allocator
+ * @name: (allow-none): the name of the allocator
  *
- * Find a previously registered allocator with @name. When @name is NULL, the
+ * Find a previously registered allocator with @name. When @name is %NULL, the
  * default allocator will be returned.
  *
- * Returns: (transfer full): a #GstAllocator or NULL when the allocator with @name was not
- * registered. Use gst_object_unref() to release the allocator after usage.
+ * Returns: (transfer full) (nullable): a #GstAllocator or %NULL when
+ * the allocator with @name was not registered. Use gst_object_unref()
+ * to release the allocator after usage.
  */
 GstAllocator *
 gst_allocator_find (const gchar * name)
@@ -271,13 +277,13 @@ gst_allocator_set_default (GstAllocator * allocator)
  * @size big.
  *
  * The optional @params can specify the prefix and padding for the memory. If
- * NULL is passed, no flags, no extra prefix/padding and a default alignment is
+ * %NULL is passed, no flags, no extra prefix/padding and a default alignment is
  * used.
  *
  * The prefix/padding will be filled with 0 if flags contains
  * #GST_MEMORY_FLAG_ZERO_PREFIXED and #GST_MEMORY_FLAG_ZERO_PADDED respectively.
  *
- * When @allocator is NULL, the default allocator will be used.
+ * When @allocator is %NULL, the default allocator will be used.
  *
  * The alignment in @params is given as a bitmask so that @align + 1 equals
  * the amount of bytes to align to. For example, to align to 8 bytes,
@@ -342,24 +348,24 @@ typedef struct
 
   gpointer user_data;
   GDestroyNotify notify;
-} GstMemoryDefault;
+} GstMemorySystem;
 
 typedef struct
 {
   GstAllocator parent;
-} GstDefaultAllocator;
+} GstAllocatorSysmem;
 
 typedef struct
 {
   GstAllocatorClass parent_class;
-} GstDefaultAllocatorClass;
+} GstAllocatorSysmemClass;
 
-GType gst_default_allocator_get_type (void);
-G_DEFINE_TYPE (GstDefaultAllocator, gst_default_allocator, GST_TYPE_ALLOCATOR);
+GType gst_allocator_sysmem_get_type (void);
+G_DEFINE_TYPE (GstAllocatorSysmem, gst_allocator_sysmem, GST_TYPE_ALLOCATOR);
 
 /* initialize the fields */
 static inline void
-_default_mem_init (GstMemoryDefault * mem, GstMemoryFlags flags,
+_sysmem_init (GstMemorySystem * mem, GstMemoryFlags flags,
     GstMemory * parent, gsize slice_size,
     gpointer data, gsize maxsize, gsize align, gsize offset, gsize size,
     gpointer user_data, GDestroyNotify notify)
@@ -374,29 +380,29 @@ _default_mem_init (GstMemoryDefault * mem, GstMemoryFlags flags,
 }
 
 /* create a new memory block that manages the given memory */
-static inline GstMemoryDefault *
-_default_mem_new (GstMemoryFlags flags,
+static inline GstMemorySystem *
+_sysmem_new (GstMemoryFlags flags,
     GstMemory * parent, gpointer data, gsize maxsize, gsize align, gsize offset,
     gsize size, gpointer user_data, GDestroyNotify notify)
 {
-  GstMemoryDefault *mem;
+  GstMemorySystem *mem;
   gsize slice_size;
 
-  slice_size = sizeof (GstMemoryDefault);
+  slice_size = sizeof (GstMemorySystem);
 
   mem = g_slice_alloc (slice_size);
-  _default_mem_init (mem, flags, parent, slice_size,
+  _sysmem_init (mem, flags, parent, slice_size,
       data, maxsize, align, offset, size, user_data, notify);
 
   return mem;
 }
 
 /* allocate the memory and structure in one block */
-static GstMemoryDefault *
-_default_mem_new_block (GstMemoryFlags flags,
+static GstMemorySystem *
+_sysmem_new_block (GstMemoryFlags flags,
     gsize maxsize, gsize align, gsize offset, gsize size)
 {
-  GstMemoryDefault *mem;
+  GstMemorySystem *mem;
   gsize aoffset, slice_size, padding;
   guint8 *data;
 
@@ -405,13 +411,13 @@ _default_mem_new_block (GstMemoryFlags flags,
   /* allocate more to compensate for alignment */
   maxsize += align;
   /* alloc header and data in one block */
-  slice_size = sizeof (GstMemoryDefault) + maxsize;
+  slice_size = sizeof (GstMemorySystem) + maxsize;
 
   mem = g_slice_alloc (slice_size);
   if (mem == NULL)
     return NULL;
 
-  data = (guint8 *) mem + sizeof (GstMemoryDefault);
+  data = (guint8 *) mem + sizeof (GstMemorySystem);
 
   /* do alignment */
   if ((aoffset = ((guintptr) data & align))) {
@@ -427,47 +433,44 @@ _default_mem_new_block (GstMemoryFlags flags,
   if (padding && (flags & GST_MEMORY_FLAG_ZERO_PADDED))
     memset (data + offset + size, 0, padding);
 
-  _default_mem_init (mem, flags, NULL, slice_size, data, maxsize,
+  _sysmem_init (mem, flags, NULL, slice_size, data, maxsize,
       align, offset, size, NULL, NULL);
 
   return mem;
 }
 
 static gpointer
-_default_mem_map (GstMemoryDefault * mem, gsize maxsize, GstMapFlags flags)
+_sysmem_map (GstMemorySystem * mem, gsize maxsize, GstMapFlags flags)
 {
   return mem->data;
 }
 
 static gboolean
-_default_mem_unmap (GstMemoryDefault * mem)
+_sysmem_unmap (GstMemorySystem * mem)
 {
   return TRUE;
 }
 
-static GstMemoryDefault *
-_default_mem_copy (GstMemoryDefault * mem, gssize offset, gsize size)
+static GstMemorySystem *
+_sysmem_copy (GstMemorySystem * mem, gssize offset, gsize size)
 {
-  GstMemoryDefault *copy;
+  GstMemorySystem *copy;
 
   if (size == -1)
     size = mem->mem.size > offset ? mem->mem.size - offset : 0;
 
-  copy =
-      _default_mem_new_block (0, mem->mem.maxsize, mem->mem.align,
-      mem->mem.offset + offset, size);
+  copy = _sysmem_new_block (0, size, mem->mem.align, 0, size);
   GST_CAT_DEBUG (GST_CAT_PERFORMANCE,
-      "memcpy %" G_GSIZE_FORMAT " memory %p -> %p", mem->mem.maxsize, mem,
-      copy);
-  memcpy (copy->data, mem->data, mem->mem.maxsize);
+      "memcpy %" G_GSIZE_FORMAT " memory %p -> %p", size, mem, copy);
+  memcpy (copy->data, mem->data + mem->mem.offset + offset, size);
 
   return copy;
 }
 
-static GstMemoryDefault *
-_default_mem_share (GstMemoryDefault * mem, gssize offset, gsize size)
+static GstMemorySystem *
+_sysmem_share (GstMemorySystem * mem, gssize offset, gsize size)
 {
-  GstMemoryDefault *sub;
+  GstMemorySystem *sub;
   GstMemory *parent;
 
   /* find the real parent */
@@ -479,7 +482,7 @@ _default_mem_share (GstMemoryDefault * mem, gssize offset, gsize size)
 
   /* the shared memory is always readonly */
   sub =
-      _default_mem_new (GST_MINI_OBJECT_FLAGS (parent) |
+      _sysmem_new (GST_MINI_OBJECT_FLAGS (parent) |
       GST_MINI_OBJECT_FLAG_LOCK_READONLY, parent, mem->data, mem->mem.maxsize,
       mem->mem.align, mem->mem.offset + offset, size, NULL, NULL);
 
@@ -487,14 +490,13 @@ _default_mem_share (GstMemoryDefault * mem, gssize offset, gsize size)
 }
 
 static gboolean
-_default_mem_is_span (GstMemoryDefault * mem1, GstMemoryDefault * mem2,
-    gsize * offset)
+_sysmem_is_span (GstMemorySystem * mem1, GstMemorySystem * mem2, gsize * offset)
 {
 
   if (offset) {
-    GstMemoryDefault *parent;
+    GstMemorySystem *parent;
 
-    parent = (GstMemoryDefault *) mem1->mem.parent;
+    parent = (GstMemorySystem *) mem1->mem.parent;
 
     *offset = mem1->mem.offset - parent->mem.offset;
   }
@@ -510,14 +512,14 @@ default_alloc (GstAllocator * allocator, gsize size,
 {
   gsize maxsize = size + params->prefix + params->padding;
 
-  return (GstMemory *) _default_mem_new_block (params->flags,
+  return (GstMemory *) _sysmem_new_block (params->flags,
       maxsize, params->align, params->prefix, size);
 }
 
 static void
 default_free (GstAllocator * allocator, GstMemory * mem)
 {
-  GstMemoryDefault *dmem = (GstMemoryDefault *) mem;
+  GstMemorySystem *dmem = (GstMemorySystem *) mem;
   gsize slice_size;
 
   if (dmem->notify)
@@ -527,20 +529,24 @@ default_free (GstAllocator * allocator, GstMemory * mem)
 
 #ifdef USE_POISONING
   /* just poison the structs, not all the data */
-  memset (mem, 0xff, sizeof (GstMemoryDefault));
+  memset (mem, 0xff, sizeof (GstMemorySystem));
 #endif
 
   g_slice_free1 (slice_size, mem);
 }
 
 static void
-gst_default_allocator_finalize (GObject * obj)
+gst_allocator_sysmem_finalize (GObject * obj)
 {
-  g_warning ("The default memory allocator was freed!");
+  /* Don't raise warnings if we are shutting down */
+  if (_default_allocator)
+    g_warning ("The default memory allocator was freed!");
+
+  ((GObjectClass *) gst_allocator_sysmem_parent_class)->finalize (obj);
 }
 
 static void
-gst_default_allocator_class_init (GstDefaultAllocatorClass * klass)
+gst_allocator_sysmem_class_init (GstAllocatorSysmemClass * klass)
 {
   GObjectClass *gobject_class;
   GstAllocatorClass *allocator_class;
@@ -548,32 +554,33 @@ gst_default_allocator_class_init (GstDefaultAllocatorClass * klass)
   gobject_class = (GObjectClass *) klass;
   allocator_class = (GstAllocatorClass *) klass;
 
-  gobject_class->finalize = gst_default_allocator_finalize;
+  gobject_class->finalize = gst_allocator_sysmem_finalize;
 
   allocator_class->alloc = default_alloc;
   allocator_class->free = default_free;
 }
 
 static void
-gst_default_allocator_init (GstDefaultAllocator * allocator)
+gst_allocator_sysmem_init (GstAllocatorSysmem * allocator)
 {
   GstAllocator *alloc = GST_ALLOCATOR_CAST (allocator);
 
   GST_CAT_DEBUG (GST_CAT_MEMORY, "init allocator %p", allocator);
 
   alloc->mem_type = GST_ALLOCATOR_SYSMEM;
-  alloc->mem_map = (GstMemoryMapFunction) _default_mem_map;
-  alloc->mem_unmap = (GstMemoryUnmapFunction) _default_mem_unmap;
-  alloc->mem_copy = (GstMemoryCopyFunction) _default_mem_copy;
-  alloc->mem_share = (GstMemoryShareFunction) _default_mem_share;
-  alloc->mem_is_span = (GstMemoryIsSpanFunction) _default_mem_is_span;
+  alloc->mem_map = (GstMemoryMapFunction) _sysmem_map;
+  alloc->mem_unmap = (GstMemoryUnmapFunction) _sysmem_unmap;
+  alloc->mem_copy = (GstMemoryCopyFunction) _sysmem_copy;
+  alloc->mem_share = (GstMemoryShareFunction) _sysmem_share;
+  alloc->mem_is_span = (GstMemoryIsSpanFunction) _sysmem_is_span;
 }
 
 void
-_priv_gst_memory_initialize (void)
+_priv_gst_allocator_initialize (void)
 {
   g_rw_lock_init (&lock);
-  allocators = g_hash_table_new (g_str_hash, g_str_equal);
+  allocators = g_hash_table_new_full (g_str_hash, g_str_equal, NULL,
+      gst_object_unref);
 
 #ifdef HAVE_GETPAGESIZE
 #ifdef MEMORY_ALIGNMENT_PAGESIZE
@@ -584,7 +591,7 @@ _priv_gst_memory_initialize (void)
   GST_CAT_DEBUG (GST_CAT_MEMORY, "memory alignment: %" G_GSIZE_FORMAT,
       gst_memory_alignment);
 
-  _sysmem_allocator = g_object_new (gst_default_allocator_get_type (), NULL);
+  _sysmem_allocator = g_object_new (gst_allocator_sysmem_get_type (), NULL);
 
   gst_allocator_register (GST_ALLOCATOR_SYSMEM,
       gst_object_ref (_sysmem_allocator));
@@ -592,35 +599,48 @@ _priv_gst_memory_initialize (void)
   _default_allocator = gst_object_ref (_sysmem_allocator);
 }
 
+void
+_priv_gst_allocator_cleanup (void)
+{
+  gst_object_unref (_sysmem_allocator);
+  _sysmem_allocator = NULL;
+
+  gst_object_unref (_default_allocator);
+  _default_allocator = NULL;
+
+  g_clear_pointer (&allocators, g_hash_table_unref);
+}
+
 /**
  * gst_memory_new_wrapped:
  * @flags: #GstMemoryFlags
- * @data: data to wrap
+ * @data: (array length=size) (element-type guint8) (transfer none): data to
+ *   wrap
  * @maxsize: allocated size of @data
  * @offset: offset in @data
  * @size: size of valid data
- * @user_data: user_data
- * @notify: called with @user_data when the memory is freed
+ * @user_data: (allow-none): user_data
+ * @notify: (allow-none) (scope async) (closure user_data): called with @user_data when the memory is freed
  *
  * Allocate a new memory block that wraps the given @data.
  *
  * The prefix/padding must be filled with 0 if @flags contains
  * #GST_MEMORY_FLAG_ZERO_PREFIXED and #GST_MEMORY_FLAG_ZERO_PADDED respectively.
  *
- * Returns: a new #GstMemory.
+ * Returns: (transfer full): a new #GstMemory.
  */
 GstMemory *
 gst_memory_new_wrapped (GstMemoryFlags flags, gpointer data,
     gsize maxsize, gsize offset, gsize size, gpointer user_data,
     GDestroyNotify notify)
 {
-  GstMemoryDefault *mem;
+  GstMemorySystem *mem;
 
   g_return_val_if_fail (data != NULL, NULL);
   g_return_val_if_fail (offset + size <= maxsize, NULL);
 
   mem =
-      _default_mem_new (flags, NULL, data, maxsize, 0, offset, size, user_data,
+      _sysmem_new (flags, NULL, data, maxsize, 0, offset, size, user_data,
       notify);
 
   return (GstMemory *) mem;

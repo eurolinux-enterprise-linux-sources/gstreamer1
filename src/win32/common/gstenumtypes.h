@@ -79,6 +79,8 @@ GType gst_event_type_flags_get_type (void);
 #define GST_TYPE_EVENT_TYPE_FLAGS (gst_event_type_flags_get_type())
 GType gst_event_type_get_type (void);
 #define GST_TYPE_EVENT_TYPE (gst_event_type_get_type())
+GType gst_stream_flags_get_type (void);
+#define GST_TYPE_STREAM_FLAGS (gst_stream_flags_get_type())
 GType gst_qos_type_get_type (void);
 #define GST_TYPE_QOS_TYPE (gst_qos_type_get_type())
 
@@ -91,6 +93,8 @@ GType gst_debug_level_get_type (void);
 #define GST_TYPE_DEBUG_LEVEL (gst_debug_level_get_type())
 GType gst_debug_color_flags_get_type (void);
 #define GST_TYPE_DEBUG_COLOR_FLAGS (gst_debug_color_flags_get_type())
+GType gst_debug_color_mode_get_type (void);
+#define GST_TYPE_DEBUG_COLOR_MODE (gst_debug_color_mode_get_type())
 
 /* enumerations from "gstiterator.h" */
 GType gst_iterator_result_get_type (void);
@@ -182,6 +186,10 @@ GType gst_seek_flags_get_type (void);
 GType gst_segment_flags_get_type (void);
 #define GST_TYPE_SEGMENT_FLAGS (gst_segment_flags_get_type())
 
+/* enumerations from "gststreams.h" */
+GType gst_stream_type_get_type (void);
+#define GST_TYPE_STREAM_TYPE (gst_stream_type_get_type())
+
 /* enumerations from "gstsystemclock.h" */
 GType gst_clock_type_get_type (void);
 #define GST_TYPE_CLOCK_TYPE (gst_clock_type_get_type())
@@ -203,6 +211,14 @@ GType gst_toc_scope_get_type (void);
 #define GST_TYPE_TOC_SCOPE (gst_toc_scope_get_type())
 GType gst_toc_entry_type_get_type (void);
 #define GST_TYPE_TOC_ENTRY_TYPE (gst_toc_entry_type_get_type())
+GType gst_toc_loop_type_get_type (void);
+#define GST_TYPE_TOC_LOOP_TYPE (gst_toc_loop_type_get_type())
+
+/* enumerations from "gsttracerrecord.h" */
+GType gst_tracer_value_scope_get_type (void);
+#define GST_TYPE_TRACER_VALUE_SCOPE (gst_tracer_value_scope_get_type())
+GType gst_tracer_value_flags_get_type (void);
+#define GST_TYPE_TRACER_VALUE_FLAGS (gst_tracer_value_flags_get_type())
 
 /* enumerations from "gsttypefind.h" */
 GType gst_type_find_probability_get_type (void);

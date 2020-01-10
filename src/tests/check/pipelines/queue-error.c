@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <gst/check/gstcheck.h>
@@ -80,7 +80,7 @@ GST_START_TEST (test_queue)
   fail_unless (state_ret != GST_STATE_CHANGE_FAILURE);
 
   msg = gst_bus_poll (bus, GST_MESSAGE_ERROR | GST_MESSAGE_EOS, 5 * GST_SECOND);
-  fail_unless (msg != NULL, "timeout waiting for error or eos message");;
+  fail_unless (msg != NULL, "timeout waiting for error or eos message");
 
   gst_message_unref (msg);
   gst_object_unref (bus);

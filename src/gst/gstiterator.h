@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_ITERATOR_H__
@@ -146,7 +146,7 @@ typedef void         (*GstIteratorForeachFunction)     (const GValue * item, gpo
  *
  * A function to be passed to gst_iterator_fold().
  *
- * Returns: TRUE if the fold should continue, FALSE if it should stop.
+ * Returns: %TRUE if the fold should continue, %FALSE if it should stop.
  */
 typedef gboolean          (*GstIteratorFoldFunction)    (const GValue * item, GValue * ret, gpointer user_data);
 
@@ -267,6 +267,10 @@ GstIteratorResult       gst_iterator_foreach            (GstIterator *it,
                                                          GstIteratorForeachFunction func, gpointer user_data);
 gboolean                gst_iterator_find_custom        (GstIterator *it, GCompareFunc func,
                                                          GValue *elem, gpointer user_data);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstIterator, gst_iterator_free)
+#endif
 
 G_END_DECLS
 

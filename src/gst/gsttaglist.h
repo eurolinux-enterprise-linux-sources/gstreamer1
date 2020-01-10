@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -154,8 +154,10 @@ struct _GstTagList {
   GstMiniObject mini_object;
 };
 
+GST_EXPORT GType _gst_tag_list_type;
+
 #define GST_TAG_LIST(x)       ((GstTagList *) (x))
-#define GST_TYPE_TAG_LIST     (gst_tag_list_get_type ())
+#define GST_TYPE_TAG_LIST     (_gst_tag_list_type)
 #define GST_IS_TAG_LIST(obj)  (GST_IS_MINI_OBJECT_TYPE((obj), GST_TYPE_TAG_LIST))
 
 /**
@@ -387,10 +389,6 @@ gboolean     gst_tag_list_get_sample_index  (const GstTagList * list,
  *
  * Returns: the same #GstTagList mini object.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstTagList * gst_tag_list_ref (GstTagList * taglist);
-#endif
-
 static inline GstTagList *
 gst_tag_list_ref (GstTagList * taglist)
 {
@@ -403,10 +401,6 @@ gst_tag_list_ref (GstTagList * taglist)
  *
  * Unref a #GstTagList, and and free all its memory when the refcount reaches 0.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC void gst_tag_list_unref (GstTagList * taglist);
-#endif
-
 static inline void
 gst_tag_list_unref (GstTagList * taglist)
 {
@@ -429,10 +423,6 @@ gst_tag_list_unref (GstTagList * taglist)
  *
  * Returns: the new #GstTagList
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstTagList * gst_tag_list_copy (const GstTagList * taglist);
-#endif
-
 static inline GstTagList *
 gst_tag_list_copy (const GstTagList * taglist)
 {
@@ -539,6 +529,14 @@ gst_tag_list_copy (const GstTagList * taglist)
  * person(s) who composed the recording (string)
  */
 #define GST_TAG_COMPOSER               "composer"
+/**
+ * GST_TAG_CONDUCTOR:
+ *
+ * conductor/performer refinement (string)
+ *
+ * Since: 1.8
+ */
+#define GST_TAG_CONDUCTOR               "conductor"
 /**
  * GST_TAG_DATE:
  *
@@ -1043,6 +1041,54 @@ gst_tag_list_copy (const GstTagList * taglist)
  * 'flip' means an horizontal mirroring.
  */
 #define GST_TAG_IMAGE_ORIENTATION            "image-orientation"
+/**
+ * GST_TAG_PUBLISHER:
+ *
+ * Name of the label or publisher (string)
+ *
+ * Since: 1.2
+ */
+#define GST_TAG_PUBLISHER                         "publisher"
+/**
+ * GST_TAG_INTERPRETED_BY:
+ *
+ * Information about the people behind a remix and similar
+ * interpretations of another existing piece (string)
+ *
+ * Since: 1.2
+ */
+#define GST_TAG_INTERPRETED_BY                    "interpreted-by"
+/**
+ * GST_TAG_MIDI_BASE_NOTE:
+ *
+ * <ulink url="http://en.wikipedia.org/wiki/Note#Note_designation_in_accordance_with_octave_name">Midi note number</ulink>
+ * of the audio track. This is useful for sample instruments and in particular
+ * for multi-samples.
+ *
+ * Since: 1.4
+ */
+#define GST_TAG_MIDI_BASE_NOTE                    "midi-base-note"
+/**
+ * GST_TAG_PRIVATE_DATA:
+ *
+ * Any private data that may be contained in tags (sample).
+ *
+ * It is represented by #GstSample in which #GstBuffer contains the
+ * binary data and the sample's info #GstStructure may contain any
+ * extra information that identifies the origin or meaning of the data.
+ *
+ * Private frames in ID3v2 tags ('PRIV' frames) will be represented
+ * using this tag, in which case the GstStructure will be named
+ * "ID3PrivateFrame" and contain a field named "owner" of type string
+ * which contains the owner-identification string from the tag.
+ *
+ * Since: 1.8
+ */
+#define GST_TAG_PRIVATE_DATA                         "private-data"
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstTagList, gst_tag_list_unref)
+#endif
 
 G_END_DECLS
 

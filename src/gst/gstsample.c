@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -26,8 +26,6 @@
  *
  * A #GstSample is a small object containing data, a type, timing and
  * extra arbitrary information.
- *
- * Last reviewed on 2012-03-29 (0.11.3)
  */
 #include "gst_private.h"
 
@@ -44,6 +42,7 @@ struct _GstSample
   GstCaps *caps;
   GstSegment segment;
   GstStructure *info;
+  GstBufferList *buffer_list;
 };
 
 GType _gst_sample_type = 0;
@@ -66,6 +65,10 @@ _gst_sample_copy (GstSample * sample)
   copy = gst_sample_new (sample->buffer, sample->caps, &sample->segment,
       (sample->info) ? gst_structure_copy (sample->info) : NULL);
 
+  if (sample->buffer_list)
+    copy->buffer_list = (GstBufferList *)
+        gst_mini_object_ref (GST_MINI_OBJECT_CAST (sample->buffer_list));
+
   return copy;
 }
 
@@ -82,15 +85,18 @@ _gst_sample_free (GstSample * sample)
     gst_structure_set_parent_refcount (sample->info, NULL);
     gst_structure_free (sample->info);
   }
+  if (sample->buffer_list)
+    gst_mini_object_unref (GST_MINI_OBJECT_CAST (sample->buffer_list));
+
   g_slice_free1 (sizeof (GstSample), sample);
 }
 
 /**
  * gst_sample_new:
- * @buffer: (transfer none) (allow-none): a #GstBuffer, or NULL
- * @caps: (transfer none) (allow-none): a #GstCaps, or NULL
- * @segment: (transfer none) (allow-none): a #GstSegment, or NULL
- * @info: (transfer full) (allow-none): a #GstStructure, or NULL
+ * @buffer: (transfer none) (allow-none): a #GstBuffer, or %NULL
+ * @caps: (transfer none) (allow-none): a #GstCaps, or %NULL
+ * @segment: (transfer none) (allow-none): a #GstSegment, or %NULL
+ * @info: (transfer full) (allow-none): a #GstStructure, or %NULL
  *
  * Create a new #GstSample with the provided details.
  *
@@ -145,8 +151,10 @@ had_parent:
  *
  * Get the buffer associated with @sample
  *
- * Returns: (transfer none): the buffer of @sample or NULL when there
- *  is no buffer. The buffer remains valid as long as @sample is valid.
+ * Returns: (transfer none) (nullable): the buffer of @sample or %NULL
+ *  when there is no buffer. The buffer remains valid as long as
+ *  @sample is valid.  If you need to hold on to it for longer than
+ *  that, take a ref to the buffer with gst_buffer_ref().
  */
 GstBuffer *
 gst_sample_get_buffer (GstSample * sample)
@@ -162,8 +170,10 @@ gst_sample_get_buffer (GstSample * sample)
  *
  * Get the caps associated with @sample
  *
- * Returns: (transfer none): the caps of @sample or NULL when there
- *  is no caps. The caps remain valid as long as @sample is valid.
+ * Returns: (transfer none) (nullable): the caps of @sample or %NULL
+ *  when there is no caps. The caps remain valid as long as @sample is
+ *  valid.  If you need to hold on to the caps for longer than that,
+ *  take a ref to the caps with gst_caps_ref().
  */
 GstCaps *
 gst_sample_get_caps (GstSample * sample)
@@ -205,4 +215,47 @@ gst_sample_get_info (GstSample * sample)
   g_return_val_if_fail (GST_IS_SAMPLE (sample), NULL);
 
   return sample->info;
+}
+
+/**
+ * gst_sample_get_buffer_list:
+ * @sample: a #GstSample
+ *
+ * Get the buffer list associated with @sample
+ *
+ * Returns: (transfer none) (nullable): the buffer list of @sample or %NULL
+ *  when there is no buffer list. The buffer list remains valid as long as
+ *  @sample is valid.  If you need to hold on to it for longer than
+ *  that, take a ref to the buffer list with gst_mini_object_ref ().
+ *
+ * Since: 1.6
+ */
+GstBufferList *
+gst_sample_get_buffer_list (GstSample * sample)
+{
+  g_return_val_if_fail (GST_IS_SAMPLE (sample), NULL);
+
+  return sample->buffer_list;
+}
+
+/**
+ * gst_sample_set_buffer_list:
+ * @sample: a #GstSample
+ * @buffer_list: a #GstBufferList
+ *
+ * Set the buffer list associated with @sample
+ *
+ * Since: 1.6
+ */
+void
+gst_sample_set_buffer_list (GstSample * sample, GstBufferList * buffer_list)
+{
+  GstBufferList *old = NULL;
+  g_return_if_fail (GST_IS_SAMPLE (sample));
+  old = sample->buffer_list;
+  sample->buffer_list = (GstBufferList *)
+      gst_mini_object_ref (GST_MINI_OBJECT_CAST (buffer_list));
+
+  if (old)
+    gst_mini_object_unref (GST_MINI_OBJECT_CAST (old));
 }

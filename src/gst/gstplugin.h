@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -93,6 +93,9 @@ typedef enum
  * @GST_PLUGIN_DEPENDENCY_FLAG_FILE_NAME_IS_SUFFIX : interpret
  *         filename argument as filter suffix and check all matching files in
  *         the directory
+ * @GST_PLUGIN_DEPENDENCY_FLAG_FILE_NAME_IS_PREFIX : interpret
+ *         filename argument as filter prefix and check all matching files in
+ *         the directory. Since 1.8.
  *
  * Flags used in connection with gst_plugin_add_dependency().
  */
@@ -100,7 +103,8 @@ typedef enum {
   GST_PLUGIN_DEPENDENCY_FLAG_NONE = 0,
   GST_PLUGIN_DEPENDENCY_FLAG_RECURSE = (1 << 0),
   GST_PLUGIN_DEPENDENCY_FLAG_PATHS_ARE_DEFAULT_ONLY = (1 << 1),
-  GST_PLUGIN_DEPENDENCY_FLAG_FILE_NAME_IS_SUFFIX = (1 << 2)
+  GST_PLUGIN_DEPENDENCY_FLAG_FILE_NAME_IS_SUFFIX = (1 << 2),
+  GST_PLUGIN_DEPENDENCY_FLAG_FILE_NAME_IS_PREFIX = (1 << 3)
 } GstPluginDependencyFlags;
 
 /**
@@ -145,11 +149,12 @@ typedef gboolean (*GstPluginInitFullFunc) (GstPlugin *plugin, gpointer user_data
  * @source: source module plugin belongs to
  * @package: shipped package plugin belongs to
  * @origin: URL to provider of plugin
- * @release_datetime: date time string in ISO 8601 format (or rather, a
- *     subset thereof), or NULL. Allowed are the following formats:
- *     "YYYY-MM-DD" and "YYY-MM-DDTHH:MMZ" (with 'T' a separator and 'Z'
- *     indicating UTC/Zulu time). This field should be set via the
- *     GST_PACKAGE_RELEASE_DATETIME preprocessor macro.
+ * @release_datetime: (allow-none): date time string in ISO 8601
+ *     format (or rather, a subset thereof), or %NULL. Allowed are the
+ *     following formats: "YYYY-MM-DD" and "YYY-MM-DDTHH:MMZ" (with
+ *     'T' a separator and 'Z' indicating UTC/Zulu time). This field
+ *     should be set via the GST_PACKAGE_RELEASE_DATETIME
+ *     preprocessor macro.
  *
  * A plugin should export a variable of this type called plugin_desc. The plugin
  * loader will use the data provided there to initialize the plugin.
@@ -198,7 +203,7 @@ struct _GstPluginDesc {
  * and must be placed outside any block to declare the plugin initialization
  * function.
  *
- * Since: 1.2.0
+ * Since: 1.2
  */
 #define GST_PLUGIN_STATIC_DECLARE(name) \
   extern void G_PASTE(gst_plugin_, G_PASTE(name, _register)) (void)
@@ -212,7 +217,7 @@ struct _GstPluginDesc {
  * It has to be used in combination with GST_PLUGIN_STATIC_DECLARE and
  * calls the plugin initialization function.
  *
- * Since: 1.2.0
+ * Since: 1.2
  */
 #define GST_PLUGIN_STATIC_REGISTER(name) G_PASTE(gst_plugin_, G_PASTE(name, _register)) ()
 
@@ -260,7 +265,7 @@ G_BEGIN_DECLS \
 GST_PLUGIN_EXPORT GstPluginDesc gst_plugin_desc = {	\
   major,						\
   minor,						\
- #name,						        \
+  G_STRINGIFY(name),                                    \
   (gchar *) description,				\
   init,							\
   version,						\
@@ -277,7 +282,7 @@ G_END_DECLS
 /**
  * GST_LICENSE_UNKNOWN:
  *
- * To be used in GST_PLUGIN_DEFINE if usure about the licence.
+ * To be used in GST_PLUGIN_DEFINE if unsure about the licence.
  */
 #define GST_LICENSE_UNKNOWN "unknown"
 
@@ -291,7 +296,7 @@ G_END_DECLS
  * A function that can be used with e.g. gst_registry_plugin_filter()
  * to get a list of plugins that match certain criteria.
  *
- * Returns: TRUE for a positive match, FALSE otherwise
+ * Returns: %TRUE for a positive match, %FALSE otherwise
  */
 typedef gboolean        (*GstPluginFilter)              (GstPlugin *plugin,
                                                          gpointer user_data);
@@ -352,6 +357,10 @@ void                    gst_plugin_add_dependency_simple (GstPlugin   * plugin,
                                                           GstPluginDependencyFlags flags);
 
 void gst_plugin_list_free (GList *list);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstPlugin, gst_object_unref)
+#endif
 
 G_END_DECLS
 

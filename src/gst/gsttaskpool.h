@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_TASK_POOL_H__
@@ -95,6 +95,10 @@ gpointer        gst_task_pool_push        (GstTaskPool *pool, GstTaskPoolFunctio
 void            gst_task_pool_join        (GstTaskPool *pool, gpointer id);
 
 void		gst_task_pool_cleanup     (GstTaskPool *pool);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstTaskPool, gst_object_unref)
+#endif
 
 G_END_DECLS
 

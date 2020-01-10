@@ -15,7 +15,7 @@ include $(top_srcdir)/common/upload-doc.mak
 
 # Extra environment needed for Core only...
 INSPECT_EXTRA_ENVIRONMENT= \
-    GST_PLUGIN_SCANNER=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner
+    GST_PLUGIN_SCANNER_1_0=$(top_builddir)/libs/gst/helpers/gst-plugin-scanner
 
 # The top-level SGML file. Change it if you want.
 DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
@@ -55,6 +55,7 @@ IGNORE_CFILES =
 
 EXTRA_HFILES = \
 	$(top_srcdir)/plugins/elements/gstcapsfilter.h \
+	$(top_srcdir)/plugins/elements/gstdownloadbuffer.h \
 	$(top_srcdir)/plugins/elements/gstfakesrc.h \
 	$(top_srcdir)/plugins/elements/gstfakesink.h \
 	$(top_srcdir)/plugins/elements/gstfdsink.h \
@@ -84,9 +85,6 @@ extra_files =
 # contains GtkObjects/GObjects and you want to document signals and properties.
 GTKDOC_CFLAGS = $(GST_OBJ_CFLAGS) -I$(top_builddir) -I$(top_builddir)/libs
 GTKDOC_LIBS = $(GST_OBJ_LIBS)
-
-GTKDOC_CC=$(LIBTOOL) --tag=CC --mode=compile $(CC)
-GTKDOC_LD=$(LIBTOOL) --tag=CC --mode=link $(CC)
 
 # If you need to override some of the declarations, place them in this file
 # and uncomment this line.

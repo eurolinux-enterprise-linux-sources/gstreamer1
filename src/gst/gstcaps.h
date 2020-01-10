@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_CAPS_H__
@@ -23,6 +23,7 @@
 #include <gst/gstconfig.h>
 #include <gst/gstminiobject.h>
 #include <gst/gststructure.h>
+#include <gst/gstcapsfeatures.h>
 #include <gst/glib-compat.h>
 
 G_BEGIN_DECLS
@@ -202,10 +203,6 @@ GST_EXPORT GstCaps * _gst_caps_none;
  *
  * Returns: the same #GstCaps object.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstCaps * gst_caps_ref (GstCaps * caps);
-#endif
-
 static inline GstCaps *
 gst_caps_ref (GstCaps * caps)
 {
@@ -219,10 +216,6 @@ gst_caps_ref (GstCaps * caps)
  * Unref a #GstCaps and and free all its structures and the
  * structures' values when the refcount reaches 0.
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC void gst_caps_unref (GstCaps * caps);
-#endif
-
 static inline void
 gst_caps_unref (GstCaps * caps)
 {
@@ -245,10 +238,6 @@ gst_caps_unref (GstCaps * caps)
  *
  * Returns: the new #GstCaps
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC GstCaps * gst_caps_copy (const GstCaps * caps);
-#endif
-
 static inline GstCaps *
 gst_caps_copy (const GstCaps * caps)
 {
@@ -287,24 +276,20 @@ gst_caps_copy (const GstCaps * caps)
 
 /**
  * gst_caps_replace:
- * @old_caps: (inout) (transfer full): pointer to a pointer to a #GstCaps to be
- *     replaced.
+ * @old_caps: (inout) (transfer full) (nullable): pointer to a pointer
+ *     to a #GstCaps to be replaced.
  * @new_caps: (transfer none) (allow-none): pointer to a #GstCaps that will
- *     replace the caps pointed to by @ocaps.
+ *     replace the caps pointed to by @old_caps.
  *
  * Modifies a pointer to a #GstCaps to point to a different #GstCaps. The
  * modification is done atomically (so this is useful for ensuring thread safety
  * in some cases), and the reference counts are updated appropriately (the old
  * caps is unreffed, the new is reffed).
  *
- * Either @ncaps or the #GstCaps pointed to by @ocaps may be NULL.
+ * Either @new_caps or the #GstCaps pointed to by @old_caps may be %NULL.
  *
- * Returns: TRUE if @new_caps was different from @old_caps
+ * Returns: %TRUE if @new_caps was different from @old_caps
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC gboolean gst_caps_replace (GstCaps **old_caps, GstCaps *new_caps);
-#endif
-
 static inline gboolean
 gst_caps_replace (GstCaps **old_caps, GstCaps *new_caps)
 {
@@ -316,18 +301,14 @@ gst_caps_replace (GstCaps **old_caps, GstCaps *new_caps)
  * @old_caps: (inout) (transfer full): pointer to a pointer to a #GstCaps to be
  *     replaced.
  * @new_caps: (transfer full) (allow-none): pointer to a #GstCaps that will
- *     replace the caps pointed to by @ocaps.
+ *     replace the caps pointed to by @old_caps.
  *
  * Modifies a pointer to a #GstCaps to point to a different #GstCaps. This
  * function is similar to gst_caps_replace() except that it takes ownership
  * of @new_caps.
  *
- * Returns: TRUE if @new_caps was different from @old_caps
+ * Returns: %TRUE if @new_caps was different from @old_caps
  */
-#ifdef _FOOL_GTK_DOC_
-G_INLINE_FUNC gboolean gst_caps_take (GstCaps **old_caps, GstCaps *new_caps);
-#endif
-
 static inline gboolean
 gst_caps_take (GstCaps **old_caps, GstCaps *new_caps)
 {
@@ -362,6 +343,58 @@ struct _GstStaticCaps {
   gpointer _gst_reserved[GST_PADDING];
 };
 
+/**
+ * GstCapsForeachFunc:
+ * @features: the #GstCapsFeatures
+ * @structure: the #GstStructure
+ * @user_data: user data
+ *
+ * A function that will be called in gst_caps_foreach(). The function may
+ * not modify @features or @structure.
+ *
+ * Returns: %TRUE if the foreach operation should continue, %FALSE if
+ * the foreach operation should stop with %FALSE.
+ *
+ * Since: 1.6
+ */
+typedef gboolean (*GstCapsForeachFunc) (GstCapsFeatures *features,
+                                        GstStructure    *structure,
+                                        gpointer         user_data);
+
+/**
+ * GstCapsMapFunc:
+ * @features: the #GstCapsFeatures
+ * @structure: the #GstStructure
+ * @user_data: user data
+ *
+ * A function that will be called in gst_caps_map_in_place(). The function
+ * may modify @features and @structure.
+ *
+ * Returns: %TRUE if the map operation should continue, %FALSE if
+ * the map operation should stop with %FALSE.
+ */
+typedef gboolean (*GstCapsMapFunc)     (GstCapsFeatures *features,
+                                        GstStructure    *structure,
+                                        gpointer         user_data);
+
+/**
+ * GstCapsFilterMapFunc:
+ * @features: the #GstCapsFeatures
+ * @structure: the #GstStructure
+ * @user_data: user data
+ *
+ * A function that will be called in gst_caps_filter_and_map_in_place().
+ * The function may modify @features and @structure, and both will be
+ * removed from the caps if %FALSE is returned.
+ *
+ * Returns: %TRUE if the features and structure should be preserved,
+ * %FALSE if it should be removed.
+ */
+typedef gboolean (*GstCapsFilterMapFunc) (GstCapsFeatures *features,
+                                          GstStructure    *structure,
+                                          gpointer user_data);
+
+
 GType             gst_caps_get_type                (void);
 
 GstCaps *         gst_caps_new_empty               (void);
@@ -384,16 +417,27 @@ void              gst_caps_append                  (GstCaps       *caps1,
                                                     GstCaps       *caps2);
 void              gst_caps_append_structure        (GstCaps       *caps,
                                                     GstStructure  *structure);
+void              gst_caps_append_structure_full   (GstCaps       *caps,
+                                                    GstStructure  *structure,
+                                                    GstCapsFeatures *features);
 void              gst_caps_remove_structure        (GstCaps       *caps, guint idx);
 GstCaps *         gst_caps_merge                   (GstCaps       *caps1,
                                                     GstCaps       *caps2) G_GNUC_WARN_UNUSED_RESULT;
 GstCaps *         gst_caps_merge_structure         (GstCaps       *caps,
                                                     GstStructure  *structure) G_GNUC_WARN_UNUSED_RESULT;
+GstCaps *         gst_caps_merge_structure_full    (GstCaps       *caps,
+                                                    GstStructure  *structure,
+                                                    GstCapsFeatures *features) G_GNUC_WARN_UNUSED_RESULT;
 guint             gst_caps_get_size                (const GstCaps *caps);
 GstStructure *    gst_caps_get_structure           (const GstCaps *caps,
                                                     guint          index);
 GstStructure *    gst_caps_steal_structure         (GstCaps       *caps,
                                                     guint          index) G_GNUC_WARN_UNUSED_RESULT;
+void              gst_caps_set_features            (GstCaps *caps,
+                                                    guint          index,
+                                                    GstCapsFeatures * features);
+GstCapsFeatures * gst_caps_get_features            (const GstCaps *caps,
+                                                    guint          index);
 GstCaps *         gst_caps_copy_nth                (const GstCaps *caps, guint nth) G_GNUC_WARN_UNUSED_RESULT;
 GstCaps *         gst_caps_truncate                (GstCaps       *caps) G_GNUC_WARN_UNUSED_RESULT;
 void              gst_caps_set_value               (GstCaps       *caps,
@@ -405,6 +449,18 @@ void              gst_caps_set_simple_valist       (GstCaps       *caps,
                                                     const char    *field,
                                                     va_list        varargs);
 
+gboolean          gst_caps_foreach                 (const GstCaps       *caps,
+                                                    GstCapsForeachFunc   func,
+                                                    gpointer             user_data);
+
+gboolean          gst_caps_map_in_place            (GstCaps        *caps,
+                                                    GstCapsMapFunc  func,
+                                                    gpointer        user_data);
+
+void              gst_caps_filter_and_map_in_place (GstCaps              *caps,
+                                                    GstCapsFilterMapFunc  func,
+                                                    gpointer              user_data);
+
 /* tests */
 gboolean          gst_caps_is_any                  (const GstCaps *caps);
 gboolean          gst_caps_is_empty                (const GstCaps *caps);
@@ -415,6 +471,9 @@ gboolean          gst_caps_is_subset		   (const GstCaps *subset,
 						    const GstCaps *superset);
 gboolean          gst_caps_is_subset_structure     (const GstCaps *caps,
                                                     const GstStructure *structure);
+gboolean          gst_caps_is_subset_structure_full (const GstCaps *caps,
+                                                     const GstStructure *structure,
+                                                     const GstCapsFeatures *features);
 gboolean          gst_caps_is_equal		   (const GstCaps *caps1,
 						    const GstCaps *caps2);
 gboolean          gst_caps_is_equal_fixed          (const GstCaps *caps1,
@@ -441,6 +500,10 @@ GstCaps *         gst_caps_fixate                  (GstCaps *caps) G_GNUC_WARN_U
 /* utility */
 gchar *           gst_caps_to_string               (const GstCaps *caps) G_GNUC_MALLOC;
 GstCaps *         gst_caps_from_string             (const gchar   *string) G_GNUC_WARN_UNUSED_RESULT;
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstCaps, gst_caps_unref)
+#endif
 
 G_END_DECLS
 

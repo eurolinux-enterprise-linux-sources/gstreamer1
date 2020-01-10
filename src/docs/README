@@ -26,7 +26,7 @@ OVERVIEW
 * The source for the documentation is:
   - one or more .xml files, with the main one being gstreamer-(whatever).xml
   - image files
-    - in .fig
+    - in .svg
     - in .png (and maybe others)
 * We want to generate docs in HTML, PS and PDF
 * We want to use xml to to generate these
@@ -202,9 +202,6 @@ STYLE GUIDE FOR GTK-DOC
     about threadsafety and related issues
 - link to signals from the description like this:
   * The <link linkend="GstBin-element-added">element-added</link> signal
-- the bottom of the description should say when the doc was last reviewed
-  (version and date)
-   * Last reviewed on 2005-10-28 (0.9.4)
 
 WEBSITE DOCUMENTATION
 =====================
@@ -387,7 +384,6 @@ Gtkdoc:
 gtk-doc
 
 Other stuff:
-transfig
 pdftops
 
 DEVHELP INTEGRATION

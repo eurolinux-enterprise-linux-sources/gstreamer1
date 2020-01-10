@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:gstnettimepacket
@@ -26,8 +26,6 @@
  *
  * Various functions for receiving, sending an serializing #GstNetTimePacket
  * structures.
- *
- * Last reviewed on 2005-11-23 (0.9.5)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -210,7 +208,7 @@ short_packet:
  *
  * MT safe.
  *
- * Returns: TRUE if successful, FALSE in case an error occured.
+ * Returns: TRUE if successful, FALSE in case an error occurred.
  */
 gboolean
 gst_net_time_packet_send (const GstNetTimePacket * packet,

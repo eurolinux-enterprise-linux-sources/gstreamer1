@@ -131,7 +131,7 @@
     <title>Buffer stream-time</title>
     <para>
       The buffer stream-time, also known as the position in the stream,
-      is calculated from the buffer timestamps and the preceeding SEGMENT
+      is calculated from the buffer timestamps and the preceding SEGMENT
       event. It represents the time inside the media as a value between
       0 and the total duration of the media.
     </para>
@@ -196,7 +196,7 @@
     <para>
       A clock provider is an element in the pipeline that can provide
       a <classname>GstClock</classname> object. The clock object needs to
-      report an absoulute-time that is monotonocally increasing when the
+      report an absolute-time that is monotonically increasing when the
       element is in the PLAYING state. It is allowed to pause the clock
       while the element is PAUSED.
     </para>

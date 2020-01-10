@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.10.29.2\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2010-08-16 01:10+0300\n"
 "Last-Translator: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>\n"
 "Language-Team: Romanian <translation-team-ro@lists.sourceforge.net>\n"
@@ -26,8 +26,9 @@ msgstr "Setează toate avertizările ca fiind fatale"
 msgid "Print available debug categories and exit"
 msgstr "Afișează categoriile de depanare disponibile și ieși"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Nivelul standard de depanare de la 1 (numai erorile) la 5 (orice) sau 0 fără "
 "afișare"
@@ -48,6 +49,11 @@ msgstr "LISTĂ"
 
 msgid "Disable colored debugging output"
 msgstr "Dezactivează afișarea în culori pentru depanare"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Dezactivează depanarea"
@@ -201,6 +207,10 @@ msgstr "Nu s-au putut obține/defini configurările din/în resursă."
 msgid "No space left on the resource."
 msgstr "Nu mai există spațiu liber pe resursă."
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "Nu mai există spațiu liber pe resursă."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer a întâlnit o eroare generală de flux."
 
@@ -253,6 +263,10 @@ msgstr "Niciun mesaj standard de eroare pentru domeniul %s și codul %d."
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "Ceasul selectat nu poate fi utilizat în linia de asamblare."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr ""
 
 msgid "title"
 msgstr "titlu"
@@ -448,6 +462,12 @@ msgstr "compozitor"
 
 msgid "person(s) who composed the recording"
 msgstr "persoana care a compus înregistrarea"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr "durata"
@@ -809,8 +829,40 @@ msgstr "orientare imagine"
 msgid "How the image should be rotated or flipped before display"
 msgstr "Cum ar trebui rotită sau întoarsă imaginea înainte de afișare"
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -825,12 +877,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "containerul gol „%s” specificat, nu este permis"
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "niciun container „%s”, se omite"
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -841,6 +893,9 @@ msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr ""
 "nu se poate stabili proprietatea „%s” în elementul „%s” la valoarea „%s”"
 
+msgid "Delayed linking failed."
+msgstr ""
+
 #, c-format
 msgid "could not link %s to %s"
 msgstr "nu se poate lega %s la %s"
@@ -850,42 +905,38 @@ msgid "no element \"%s\""
 msgstr "niciun element „%s”"
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "nu se pot analiza majusculele „%s”"
-
-msgid "link without source element"
-msgstr "legătură fără un element sursă"
-
-msgid "link without sink element"
-msgstr "legătură fără un element derivat"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "niciun element sursă pentru URI „%s”"
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "niciun element pentru a lega URI „%s” la"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "niciun element derivat pentru URI „%s”"
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "nu se poate lega elementul derivat pentru URI „%s”"
+msgid "no source element for URI \"%s\""
+msgstr "niciun element sursă pentru URI „%s”"
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "containerul gol „%s” specificat, nu este permis"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "niciun container „%s”, se omite"
 
 msgid "empty pipeline not allowed"
 msgstr "linia de asamblare vidă nu este permisă"
-
-msgid "Internal clock error."
-msgstr "Eroare internă de ceas."
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr "Eroare internă de flux al datelor."
 
 msgid "A lot of buffers are being dropped."
 msgstr "Multe zone de memorie tampon sunt abandonate."
@@ -893,8 +944,14 @@ msgstr "Multe zone de memorie tampon sunt abandonate."
 msgid "Internal data flow problem."
 msgstr "Problemă internă de flux al datelor."
 
-msgid "Internal data stream error."
-msgstr "Eroare internă a fluxului de date."
+msgid "Internal data flow error."
+msgstr "Eroare internă de flux al datelor."
+
+msgid "Internal clock error."
+msgstr "Eroare internă de ceas."
+
+msgid "Failed to map buffer."
+msgstr ""
 
 msgid "Filter caps"
 msgstr "Filtrare majuscule"
@@ -905,6 +962,26 @@ msgid ""
 msgstr ""
 "Restricționează capacitățile permise (NULL înseamnă ORICE). Definirea "
 "acestei proprietăți preia o referință către obiectul GstCaps furnizat."
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr "Niciun director temporar specificat."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Nu am putut crea fișierul temporar „%s”."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Nu se poate deschide fișierul „%s” pentru citire."
+
+msgid "Error while writing to download file."
+msgstr "Eroare la scrierea în fișierul descărcat."
 
 msgid "No file name specified for writing."
 msgstr "Niciun nume de fișier specificat pentru scriere."
@@ -929,10 +1006,6 @@ msgid "No file name specified for reading."
 msgstr "Niciun nume de fișier specificat pentru citire."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Nu se poate deschide fișierul „%s” pentru citire."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Nu se pot obține informații despre „%s”."
 
@@ -946,16 +1019,6 @@ msgstr "Fișierul „%s” este un socket."
 
 msgid "Failed after iterations as requested."
 msgstr "Eșec după numărul de iterații care a fost cerut."
-
-msgid "No Temp directory specified."
-msgstr "Niciun director temporar specificat."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Nu am putut crea fișierul temporar „%s”."
-
-msgid "Error while writing to download file."
-msgstr "Eroare la scrierea în fișierul descărcat."
 
 msgid "caps"
 msgstr "majuscule"
@@ -972,6 +1035,10 @@ msgstr "forțează caps"
 msgid "force caps without doing a typefind"
 msgstr "forțează caps fără a efectua un typefind"
 
+#, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "Fluxul nu conține date."
+
 msgid "Stream contains no data."
 msgstr "Fluxul nu conține date."
 
@@ -983,6 +1050,9 @@ msgstr "se poate citi"
 
 msgid "writable"
 msgstr "se poate scrie"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr "se poate controla"
@@ -1135,6 +1205,10 @@ msgstr "AVERTISMENT: de la elementul %s: %s\n"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr "Preîncărcare, se așteaptă terminarea umplerii memoriei tampon...\n"
 
+#, fuzzy
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr "Preîncărcare, se așteaptă terminarea umplerii memoriei tampon...\n"
+
 msgid "buffering..."
 msgstr ""
 
@@ -1154,9 +1228,17 @@ msgstr "Se definește starea la %s după cum a fost cerut de %s...\n"
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Întrerupere: Se oprește linia de asamblare ...\n"
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "niciun element „%s”"
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "AVERTISMENT: de la elementul %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Marcaje de ieșire (cunoscute și ca „metadata”)"
@@ -1173,11 +1255,13 @@ msgstr "Nu tipări niciun fel de informații de progres"
 msgid "Output messages"
 msgstr "Mesaje de ieșire"
 
-msgid "Do not output status information of TYPE"
-msgstr "Nu scoate informații despre stările de TIPUL"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TIP1,TIP2,..."
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr "Nu instala un gestionar de erori"
@@ -1257,6 +1341,27 @@ msgstr "Se setează linia de asamblare pe NULL ...\n"
 
 msgid "Freeing pipeline ...\n"
 msgstr "Se eliberează linia de asamblare...\n"
+
+#~ msgid "Internal data stream error."
+#~ msgstr "Eroare internă a fluxului de date."
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "Nu scoate informații despre stările de TIPUL"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "TIP1,TIP2,..."
+
+#~ msgid "link without source element"
+#~ msgstr "legătură fără un element sursă"
+
+#~ msgid "link without sink element"
+#~ msgstr "legătură fără un element derivat"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "niciun element pentru a lega URI „%s” la"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "nu se poate lega elementul derivat pentru URI „%s”"
 
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr "Afișează căile de alocare (dacă s-a activat la momentul compilării)"

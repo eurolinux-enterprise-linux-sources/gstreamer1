@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /* This header is not installed, it just contains stuff for gtk-doc to parse,
@@ -258,8 +258,9 @@ void gst_byte_writer_put_data_unchecked (GstByteWriter *writer, const guint8 *da
 /**
  * gst_byte_writer_fill_unchecked:
  * @writer: #GstByteWriter instance
- * @value: Value to be writen
- * @size: Number of bytes to be writen
+ * @value: Value to be written
+ * @size: Number of bytes to be written
+
  *
  * Writes @size bytes containing @value to @writer without
  * checking if there is enough free space available in the byte writer.

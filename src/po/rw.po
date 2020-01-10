@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.8.8\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2005-04-04 10:55-0700\n"
 "Last-Translator: Steven Michael Murphy <murf@e-tools.com>\n"
 "Language-Team: Kinyarwanda <translation-team-rw@lists.sourceforge.net>\n"
@@ -39,7 +39,7 @@ msgstr "Bihari Kosora amakosa Ibyiciro Na Gusohoka"
 
 #, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Kosora amakosa urwego Bivuye 1. Ikosa Kuri 5 Cyangwa 0 kugirango Oya "
 "Ibisohoka"
@@ -89,6 +89,11 @@ msgstr "Urutonde"
 #, fuzzy
 msgid "Disable colored debugging output"
 msgstr "Ibisohoka"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr ""
@@ -263,6 +268,10 @@ msgid "No space left on the resource."
 msgstr ""
 
 #, fuzzy
+msgid "Not authorized to access resource."
+msgstr "OYA Kwandika Kuri"
+
+#, fuzzy
 msgid "GStreamer encountered a general stream error."
 msgstr "a Rusange Isomero Ikosa"
 
@@ -319,6 +328,10 @@ msgid "No standard error message for domain %s and code %d."
 msgstr "Bisanzwe Ikosa Ubutumwa kugirango Urwego Na ITEGEKONGENGA"
 
 msgid "Selected clock cannot be used in pipeline."
+msgstr ""
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
 msgstr ""
 
 msgid "title"
@@ -585,6 +598,12 @@ msgstr ""
 #, fuzzy
 msgid "person(s) who composed the recording"
 msgstr "S Nshingwabikorwa kugirango i"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 # officecfg/registry\schema\org\openoffice\Office\Writer.xcs:....AgendaType.Duration.text
 #, fuzzy
@@ -953,8 +972,40 @@ msgstr ""
 msgid "How the image should be rotated or flipped before display"
 msgstr ""
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, fuzzy, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -966,13 +1017,13 @@ msgid ""
 "%s\n"
 msgstr "Kosora amakosa Ibisobanuro"
 
-#, fuzzy, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "ubusa OYA"
+#, c-format
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
-#, fuzzy, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "Oya Gusimbuka: %s%s"
+#, c-format
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, fuzzy, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -982,6 +1033,9 @@ msgstr "Oya indangakintu in Ikigize:"
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "OYA Gushyiraho indangakintu in Ikigize: Kuri"
 
+msgid "Delayed linking failed."
+msgstr ""
+
 #, fuzzy, c-format
 msgid "could not link %s to %s"
 msgstr "OYA Ihuza Kuri"
@@ -990,46 +1044,40 @@ msgstr "OYA Ihuza Kuri"
 msgid "no element \"%s\""
 msgstr "Oya Ikigize:"
 
+#, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "could not parse caps \"%s\""
 msgstr "OYA Inyuguti nkuru"
-
-#, fuzzy
-msgid "link without source element"
-msgstr "Ihuza Inkomoko Ikigize:"
-
-#, fuzzy
-msgid "link without sink element"
-msgstr "Ihuza Ikigize:"
-
-#, fuzzy, c-format
-msgid "no source element for URI \"%s\""
-msgstr "Oya Inkomoko Ikigize: kugirango"
-
-#, fuzzy, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "Oya Ikigize: Kuri Ihuza Kuri"
 
 #, fuzzy, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "Oya Ikigize: kugirango"
 
 #, fuzzy, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "OYA Ihuza Ikigize: kugirango"
+msgid "no source element for URI \"%s\""
+msgstr "Oya Inkomoko Ikigize: kugirango"
+
+msgid "syntax error"
+msgstr ""
+
+#, fuzzy, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "ubusa OYA"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "Oya Gusimbuka: %s%s"
 
 #, fuzzy
 msgid "empty pipeline not allowed"
 msgstr "ubusa OYA"
-
-msgid "Internal clock error."
-msgstr ""
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr ""
 
 msgid "A lot of buffers are being dropped."
 msgstr ""
@@ -1037,7 +1085,13 @@ msgstr ""
 msgid "Internal data flow problem."
 msgstr ""
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
+msgstr ""
+
+msgid "Internal clock error."
+msgstr ""
+
+msgid "Failed to map buffer."
 msgstr ""
 
 msgid "Filter caps"
@@ -1047,6 +1101,27 @@ msgid ""
 "Restrict the possible allowed capabilities (NULL means ANY). Setting this "
 "property takes a reference to the supplied GstCaps object."
 msgstr ""
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr ""
+
+#, fuzzy, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "OYA Kubona Gushyiraho Amagenamiterere Bivuye ku"
+
+#, fuzzy, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "OYA Gufungura IDOSIYE kugirango"
+
+#, fuzzy
+msgid "Error while writing to download file."
+msgstr "Kuri IDOSIYE"
 
 #, fuzzy
 msgid "No file name specified for writing."
@@ -1073,10 +1148,6 @@ msgid "No file name specified for reading."
 msgstr "IDOSIYE Izina: kugirango"
 
 #, fuzzy, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "OYA Gufungura IDOSIYE kugirango"
-
-#, fuzzy, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "OYA Kubona Gushyiraho Amagenamiterere Bivuye ku"
 
@@ -1091,17 +1162,6 @@ msgstr "Idosiye ni a"
 #, fuzzy
 msgid "Failed after iterations as requested."
 msgstr "Nyuma Amasubiramo Nka"
-
-msgid "No Temp directory specified."
-msgstr ""
-
-#, fuzzy, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "OYA Kubona Gushyiraho Amagenamiterere Bivuye ku"
-
-#, fuzzy
-msgid "Error while writing to download file."
-msgstr "Kuri IDOSIYE"
 
 # #-#-#-#-#  officecfg.pot (PACKAGE VERSION)  #-#-#-#-#
 # officecfg/registry\schema\org\openoffice\Office\Writer.xcs:....Revision.TextDisplay.Insert.Attribute..5.text
@@ -1129,6 +1189,10 @@ msgid "force caps without doing a typefind"
 msgstr ""
 
 #, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "iyi Ibyatanzwe"
+
+#, fuzzy
 msgid "Stream contains no data."
 msgstr "iyi Ibyatanzwe"
 
@@ -1141,6 +1205,9 @@ msgstr ""
 #, fuzzy
 msgid "writable"
 msgstr "umutwe"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr ""
@@ -1283,6 +1350,9 @@ msgstr "Bivuye Ikigize:"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr ""
 
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+
 msgid "buffering..."
 msgstr ""
 
@@ -1302,9 +1372,17 @@ msgstr ""
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr ""
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "Oya Ikigize:"
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "Bivuye Ikigize:"
 
 #, fuzzy
 msgid "Output tags (also known as metadata)"
@@ -1324,11 +1402,12 @@ msgstr "OYA Ibisohoka Imimerere Ibisobanuro Bya"
 msgid "Output messages"
 msgstr ""
 
-#, fuzzy
-msgid "Do not output status information of TYPE"
-msgstr "OYA Ibisohoka Imimerere Ibisobanuro Bya"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
+msgid "PROPERTY-NAME"
 msgstr ""
 
 #, fuzzy
@@ -1413,6 +1492,26 @@ msgstr ""
 
 msgid "Freeing pipeline ...\n"
 msgstr ""
+
+#, fuzzy
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "OYA Ibisohoka Imimerere Ibisobanuro Bya"
+
+#, fuzzy
+#~ msgid "link without source element"
+#~ msgstr "Ihuza Inkomoko Ikigize:"
+
+#, fuzzy
+#~ msgid "link without sink element"
+#~ msgstr "Ihuza Ikigize:"
+
+#, fuzzy
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "Oya Ikigize: Kuri Ihuza Kuri"
+
+#, fuzzy
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "OYA Ihuza Ikigize: kugirango"
 
 #, fuzzy
 #~ msgid "Print alloc trace (if enabled at compile time)"

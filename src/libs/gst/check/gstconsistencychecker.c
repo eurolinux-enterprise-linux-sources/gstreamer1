@@ -17,8 +17,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -213,7 +213,7 @@ add_pad (GstStreamConsistency * consist, GstPad * pad)
 }
 
 /**
- * gst_consistency_checker_new:
+ * gst_consistency_checker_new: (skip)
  * @pad: The #GstPad on which the dataflow will be checked.
  *
  * Sets up a data probe on the given pad which will raise assertions if the

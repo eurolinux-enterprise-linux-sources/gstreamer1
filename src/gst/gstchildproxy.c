@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -100,7 +100,7 @@ gst_child_proxy_default_get_child_by_name (GstChildProxy * parent,
 /**
  * gst_child_proxy_get_child_by_name:
  * @parent: the parent object to get the child from
- * @name: the childs name
+ * @name: the child's name
  *
  * Looks up a child element by the given name.
  *
@@ -108,8 +108,8 @@ gst_child_proxy_default_get_child_by_name (GstChildProxy * parent,
  * together with gst_object_get_name(). If the interface is to be used with
  * #GObjects, this methods needs to be overridden.
  *
- * Returns: (transfer full): the child object or %NULL if not found. Unref
- *     after usage.
+ * Returns: (transfer full) (nullable): the child object or %NULL if
+ *     not found. Unref after usage.
  *
  * MT safe.
  */
@@ -125,12 +125,12 @@ gst_child_proxy_get_child_by_name (GstChildProxy * parent, const gchar * name)
 /**
  * gst_child_proxy_get_child_by_index:
  * @parent: the parent object to get the child from
- * @index: the childs position in the child list
+ * @index: the child's position in the child list
  *
  * Fetches a child by its number.
  *
- * Returns: (transfer full): the child object or %NULL if not found (index
- *     too high). Unref after usage.
+ * Returns: (transfer full) (nullable): the child object or %NULL if
+ *     not found (index too high). Unref after usage.
  *
  * MT safe.
  */
@@ -163,7 +163,7 @@ gst_child_proxy_get_children_count (GstChildProxy * parent)
 
 /**
  * gst_child_proxy_lookup:
- * @childproxy: child proxy object to lookup the property in
+ * @object: child proxy object to lookup the property in
  * @name: name of the property to look up
  * @target: (out) (allow-none) (transfer full): pointer to a #GObject that
  *     takes the real object to set property on
@@ -174,62 +174,62 @@ gst_child_proxy_get_children_count (GstChildProxy * parent)
  *
  * MT safe.
  *
- * Returns: TRUE if @target and @pspec could be found. FALSE otherwise. In that
+ * Returns: %TRUE if @target and @pspec could be found. %FALSE otherwise. In that
  * case the values for @pspec and @target are not modified. Unref @target after
  * usage. For plain GObjects @target is the same as @object.
  */
 gboolean
-gst_child_proxy_lookup (GstChildProxy * childproxy, const gchar * name,
+gst_child_proxy_lookup (GstChildProxy * object, const gchar * name,
     GObject ** target, GParamSpec ** pspec)
 {
-  GObject *object;
+  GObject *obj;
   gboolean res = FALSE;
   gchar **names, **current;
 
-  g_return_val_if_fail (GST_IS_CHILD_PROXY (childproxy), FALSE);
+  g_return_val_if_fail (GST_IS_CHILD_PROXY (object), FALSE);
   g_return_val_if_fail (name != NULL, FALSE);
 
-  object = g_object_ref (childproxy);
+  obj = g_object_ref (object);
 
   current = names = g_strsplit (name, "::", -1);
   /* find the owner of the property */
   while (current[1]) {
     GObject *next;
 
-    if (!GST_IS_CHILD_PROXY (object)) {
+    if (!GST_IS_CHILD_PROXY (obj)) {
       GST_INFO
           ("object %s is not a parent, so you cannot request a child by name %s",
-          (GST_IS_OBJECT (object) ? GST_OBJECT_NAME (object) : ""), current[0]);
+          (GST_IS_OBJECT (obj) ? GST_OBJECT_NAME (obj) : ""), current[0]);
       break;
     }
-    next = gst_child_proxy_get_child_by_name (GST_CHILD_PROXY (object),
+    next = gst_child_proxy_get_child_by_name (GST_CHILD_PROXY (obj),
         current[0]);
     if (!next) {
       GST_INFO ("no such object %s", current[0]);
       break;
     }
-    g_object_unref (object);
-    object = next;
+    g_object_unref (obj);
+    obj = next;
     current++;
   }
 
   /* look for psec */
   if (current[1] == NULL) {
     GParamSpec *spec =
-        g_object_class_find_property (G_OBJECT_GET_CLASS (object), current[0]);
+        g_object_class_find_property (G_OBJECT_GET_CLASS (obj), current[0]);
     if (spec == NULL) {
       GST_INFO ("no param spec named %s", current[0]);
     } else {
       if (pspec)
         *pspec = spec;
       if (target) {
-        g_object_ref (object);
-        *target = object;
+        g_object_ref (obj);
+        *target = obj;
       }
       res = TRUE;
     }
   }
-  g_object_unref (object);
+  g_object_unref (obj);
   g_strfreev (names);
   return res;
 }
@@ -274,7 +274,7 @@ not_found:
  * gst_child_proxy_get_valist:
  * @object: the object to query
  * @first_property_name: name of the first property to get
- * @var_args: return location for the first property, followed optionally by more name/return location pairs, followed by NULL
+ * @var_args: return location for the first property, followed optionally by more name/return location pairs, followed by %NULL
  *
  * Gets properties of the parent object and its children.
  */
@@ -328,7 +328,7 @@ cant_copy:
  * gst_child_proxy_get:
  * @object: the parent object
  * @first_property_name: name of the first property to get
- * @...: return location for the first property, followed optionally by more name/return location pairs, followed by NULL
+ * @...: return location for the first property, followed optionally by more name/return location pairs, followed by %NULL
  *
  * Gets properties of the parent object and its children.
  */
@@ -383,7 +383,7 @@ not_found:
  * gst_child_proxy_set_valist:
  * @object: the parent object
  * @first_property_name: name of the first property to set
- * @var_args: value for the first property, followed optionally by more name/value pairs, followed by NULL
+ * @var_args: value for the first property, followed optionally by more name/value pairs, followed by %NULL
  *
  * Sets properties of the parent object and its children.
  */
@@ -440,7 +440,7 @@ cant_copy:
  * gst_child_proxy_set:
  * @object: the parent object
  * @first_property_name: name of the first property to set
- * @...: value for the first property, followed optionally by more name/value pairs, followed by NULL
+ * @...: value for the first property, followed optionally by more name/value pairs, followed by %NULL
  *
  * Sets properties of the parent object and its children.
  */

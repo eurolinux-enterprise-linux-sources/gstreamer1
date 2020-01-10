@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_NET_ADDRESS_META_H__
@@ -29,6 +29,8 @@ typedef struct _GstNetAddressMeta GstNetAddressMeta;
 
 /**
  * GstNetAddressMeta:
+ * @meta: the parent type
+ * @addr: a #GSocketAddress stored as metadata
  *
  * Buffer metadata for network addresses.
  */
@@ -41,15 +43,13 @@ struct _GstNetAddressMeta {
 GType gst_net_address_meta_api_get_type (void);
 #define GST_NET_ADDRESS_META_API_TYPE (gst_net_address_meta_api_get_type())
 
-#define gst_buffer_get_net_address_meta(b) \
-  ((GstNetAddressMeta*)gst_buffer_get_meta((b),GST_NET_ADDRESS_META_API_TYPE))
-
 /* implementation */
 const GstMetaInfo *gst_net_address_meta_get_info (void);
 #define GST_NET_ADDRESS_META_INFO (gst_net_address_meta_get_info())
 
 GstNetAddressMeta * gst_buffer_add_net_address_meta (GstBuffer      *buffer,
                                                      GSocketAddress *addr);
+GstNetAddressMeta * gst_buffer_get_net_address_meta (GstBuffer      *buffer);
 
 G_END_DECLS
 

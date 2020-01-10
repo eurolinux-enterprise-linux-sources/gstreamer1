@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_BASE_SINK_H__
@@ -44,18 +44,18 @@ G_BEGIN_DECLS
  */
 #define GST_BASE_SINK_PAD(obj)          (GST_BASE_SINK_CAST (obj)->sinkpad)
 
-#define GST_BASE_SINK_GET_PREROLL_LOCK(pad)   (&GST_BASE_SINK_CAST(pad)->preroll_lock)
-#define GST_BASE_SINK_PREROLL_LOCK(pad)       (g_mutex_lock(GST_BASE_SINK_GET_PREROLL_LOCK(pad)))
-#define GST_BASE_SINK_PREROLL_TRYLOCK(pad)    (g_mutex_trylock(GST_BASE_SINK_GET_PREROLL_LOCK(pad)))
-#define GST_BASE_SINK_PREROLL_UNLOCK(pad)     (g_mutex_unlock(GST_BASE_SINK_GET_PREROLL_LOCK(pad)))
+#define GST_BASE_SINK_GET_PREROLL_LOCK(obj)   (&GST_BASE_SINK_CAST(obj)->preroll_lock)
+#define GST_BASE_SINK_PREROLL_LOCK(obj)       (g_mutex_lock(GST_BASE_SINK_GET_PREROLL_LOCK(obj)))
+#define GST_BASE_SINK_PREROLL_TRYLOCK(obj)    (g_mutex_trylock(GST_BASE_SINK_GET_PREROLL_LOCK(obj)))
+#define GST_BASE_SINK_PREROLL_UNLOCK(obj)     (g_mutex_unlock(GST_BASE_SINK_GET_PREROLL_LOCK(obj)))
 
-#define GST_BASE_SINK_GET_PREROLL_COND(pad)   (&GST_BASE_SINK_CAST(pad)->preroll_cond)
-#define GST_BASE_SINK_PREROLL_WAIT(pad)       \
-      g_cond_wait (GST_BASE_SINK_GET_PREROLL_COND (pad), GST_BASE_SINK_GET_PREROLL_LOCK (pad))
-#define GST_BASE_SINK_PREROLL_WAIT_UNTIL(pad, end_time) \
-      g_cond_wait_until (GST_BASE_SINK_GET_PREROLL_COND (pad), GST_BASE_SINK_GET_PREROLL_LOCK (pad), end_time)
-#define GST_BASE_SINK_PREROLL_SIGNAL(pad)     g_cond_signal (GST_BASE_SINK_GET_PREROLL_COND (pad));
-#define GST_BASE_SINK_PREROLL_BROADCAST(pad)  g_cond_broadcast (GST_BASE_SINK_GET_PREROLL_COND (pad));
+#define GST_BASE_SINK_GET_PREROLL_COND(obj)   (&GST_BASE_SINK_CAST(obj)->preroll_cond)
+#define GST_BASE_SINK_PREROLL_WAIT(obj)       \
+      g_cond_wait (GST_BASE_SINK_GET_PREROLL_COND (obj), GST_BASE_SINK_GET_PREROLL_LOCK (obj))
+#define GST_BASE_SINK_PREROLL_WAIT_UNTIL(obj, end_time) \
+      g_cond_wait_until (GST_BASE_SINK_GET_PREROLL_COND (obj), GST_BASE_SINK_GET_PREROLL_LOCK (obj), end_time)
+#define GST_BASE_SINK_PREROLL_SIGNAL(obj)     g_cond_signal (GST_BASE_SINK_GET_PREROLL_COND (obj));
+#define GST_BASE_SINK_PREROLL_BROADCAST(obj)  g_cond_broadcast (GST_BASE_SINK_GET_PREROLL_COND (obj));
 
 typedef struct _GstBaseSink GstBaseSink;
 typedef struct _GstBaseSinkClass GstBaseSinkClass;
@@ -137,7 +137,7 @@ struct _GstBaseSink {
  * @preroll: Called to present the preroll buffer if desired.
  * @render: Called when a buffer should be presented or output, at the
  *     correct moment if the #GstBaseSink has been set to sync to the clock.
- * @render_list: Same as @render but used whith buffer lists instead of
+ * @render_list: Same as @render but used with buffer lists instead of
  *     buffers.
  *
  * Subclasses can override any of the available virtual methods or not, as
@@ -245,10 +245,18 @@ guint           gst_base_sink_get_blocksize     (GstBaseSink *sink);
 void            gst_base_sink_set_throttle_time (GstBaseSink *sink, guint64 throttle);
 guint64         gst_base_sink_get_throttle_time (GstBaseSink *sink);
 
+/* max-bitrate */
+void            gst_base_sink_set_max_bitrate   (GstBaseSink *sink, guint64 max_bitrate);
+guint64         gst_base_sink_get_max_bitrate   (GstBaseSink *sink);
+
 GstClockReturn  gst_base_sink_wait_clock        (GstBaseSink *sink, GstClockTime time,
                                                  GstClockTimeDiff * jitter);
 GstFlowReturn   gst_base_sink_wait              (GstBaseSink *sink, GstClockTime time,
                                                  GstClockTimeDiff *jitter);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBaseSink, gst_object_unref)
+#endif
 
 G_END_DECLS
 

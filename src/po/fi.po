@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.10.30.3\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2010-11-17 23:10+0200\n"
 "Last-Translator: Tommi Vainikainen <Tommi.Vainikainen@iki.fi>\n"
 "Language-Team: Finnish <translation-team-fi@lists.sourceforge.net>\n"
@@ -31,8 +31,9 @@ msgstr "Tee kaikista varoituksista vakavia"
 msgid "Print available debug categories and exit"
 msgstr "Tulosta saatavilla olevat vianetsintäluokat ja poistu"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Oletusvianetsintätaso väliltä 1:stä (vain virheet) 5:een (kaikki) tai 0 ei "
 "tulostetta"
@@ -52,6 +53,11 @@ msgstr "LUETTELO"
 
 msgid "Disable colored debugging output"
 msgstr "Ei väritettyjä vianetsintätietoja"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Ei vianetsintää"
@@ -202,6 +208,10 @@ msgstr "Resurssin asetuksia ei saatu/voitu asettaa."
 msgid "No space left on the resource."
 msgstr "Resurssilla ei ole tilaa jäljellä."
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "Resurssilla ei ole tilaa jäljellä."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer kohtasi yleisen tietovirtavirheen."
 
@@ -253,6 +263,10 @@ msgstr "Standardia virheviestiä alueelle %s ja koodille %d ei ole."
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "Valittua kelloa ei voi käyttää liukuhihnassa."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr "Virhe kirjoitettaessa rekisterivälimuistia kohteeseen %s: %s"
 
 msgid "title"
 msgstr "nimi"
@@ -444,6 +458,12 @@ msgstr "säveltäjä"
 
 msgid "person(s) who composed the recording"
 msgstr "sävellyksestä vastuussa oleva(t) henkilö(t)"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr "kesto"
@@ -794,8 +814,40 @@ msgstr "kuvasuunta"
 msgid "How the image should be rotated or flipped before display"
 msgstr "Kuinka kuva tulisi pyöräyttää tai kääntää ympäri ennen näyttämistä"
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -810,12 +862,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "määritetty tyhjä säiliö ”%s”, ei sallittu"
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "ei säiliötä ”%s”, ohitetaan"
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -824,6 +876,9 @@ msgstr "ominaisuutta ”%s” ei ole elementissä ”%s”"
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "elementin ”%2$s” ominaisuutta ”%1$s” ei voitu asettaa arvoon ”%3$s”"
+
+msgid "Delayed linking failed."
+msgstr ""
 
 #, c-format
 msgid "could not link %s to %s"
@@ -834,43 +889,38 @@ msgid "no element \"%s\""
 msgstr "ei elementtiä ”%s”"
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "kykyjä ”%s” ei voitu jäsentää"
-
-msgid "link without source element"
-msgstr "linkki ilman lähde-elementtiä"
-
-msgid "link without sink element"
-msgstr "linkki ilman nieluelementtiä"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "ei lähde-elementtiä URI:lle ”%s”"
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "ei elementtiä, jota linkittää URIin ”%s”"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "ei nieluelementtiä URIlle ”%s”"
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "nieluelementtiä ei voitu linkittää URIlle ”%s”"
+msgid "no source element for URI \"%s\""
+msgstr "ei lähde-elementtiä URI:lle ”%s”"
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "määritetty tyhjä säiliö ”%s”, ei sallittu"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "ei säiliötä ”%s”, ohitetaan"
 
 msgid "empty pipeline not allowed"
 msgstr "tyhjää liukuhihnaa ei sallita"
-
-msgid "Internal clock error."
-msgstr "Sisäinen kellovirhe."
-
-#, fuzzy
-msgid "Failed to map buffer."
-msgstr "Kuvan koodaus epäonnistui."
-
-msgid "Internal data flow error."
-msgstr "Sisäinen tiedon virtausvirhe."
 
 msgid "A lot of buffers are being dropped."
 msgstr "Useita puskureita putoilee."
@@ -878,8 +928,15 @@ msgstr "Useita puskureita putoilee."
 msgid "Internal data flow problem."
 msgstr "Sisäinen tiedon virtausongelma."
 
-msgid "Internal data stream error."
-msgstr "Sisäinen tietovirtavirhe."
+msgid "Internal data flow error."
+msgstr "Sisäinen tiedon virtausvirhe."
+
+msgid "Internal clock error."
+msgstr "Sisäinen kellovirhe."
+
+#, fuzzy
+msgid "Failed to map buffer."
+msgstr "Kuvan koodaus epäonnistui."
 
 msgid "Filter caps"
 msgstr "Kykysuodatus"
@@ -890,6 +947,26 @@ msgid ""
 msgstr ""
 "Rajoita mahdollisia sallittuja kykyjä (NULL tarkoittaa mitä tahansa). Tämän "
 "ominaisuuden asettaminen ottaa kahvan annettuun GstCaps-olioon."
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr "Tilapäishakemistoa ei ole määritetty."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Ei voitu luoda tilapäistiedostoa ”%s”."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Tiedostoa ”%s” ei voitu avata lukemista varten."
+
+msgid "Error while writing to download file."
+msgstr "Virhe kirjoitettaessa lataustiedostoon."
 
 msgid "No file name specified for writing."
 msgstr "Kirjoitusta varten ei määritetty tiedostonimeä."
@@ -914,10 +991,6 @@ msgid "No file name specified for reading."
 msgstr "Lukemista varten ei ole määritetty tiedostonimeä."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Tiedostoa ”%s” ei voitu avata lukemista varten."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Ei saatu tietoja kohteesta ”%s”."
 
@@ -931,16 +1004,6 @@ msgstr "Tiedosto ”%s” on pistoke."
 
 msgid "Failed after iterations as requested."
 msgstr "Epäonnistui, kuten pyydettiin, yritysten jälkeen."
-
-msgid "No Temp directory specified."
-msgstr "Tilapäishakemistoa ei ole määritetty."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Ei voitu luoda tilapäistiedostoa ”%s”."
-
-msgid "Error while writing to download file."
-msgstr "Virhe kirjoitettaessa lataustiedostoon."
 
 msgid "caps"
 msgstr "kyvyt"
@@ -957,6 +1020,10 @@ msgstr "pakota kyvyt"
 msgid "force caps without doing a typefind"
 msgstr "pakota kyvyt ilman tyyppihakua"
 
+#, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "Virta on tyhjä."
+
 msgid "Stream contains no data."
 msgstr "Virta on tyhjä."
 
@@ -968,6 +1035,9 @@ msgstr "luettavissa"
 
 msgid "writable"
 msgstr "kirjoitettavissa"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr "ohjattavissa"
@@ -1115,6 +1185,10 @@ msgstr "VAROITUS: elementiltä %s: %s\n"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr "Esipyöritetty, odotetaan puskuroinnin päättymistä...\n"
 
+#, fuzzy
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr "Esipyöritetty, odotetaan puskuroinnin päättymistä...\n"
+
 msgid "buffering..."
 msgstr "puskuroidaan..."
 
@@ -1134,9 +1208,17 @@ msgstr "Asetetaan tilaan %s kuten %s pyysi...\n"
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Keskeytys: Pysäytetään liukuhihna ...\n"
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "ei elementtiä ”%s”"
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "VAROITUS: elementiltä %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Tulostemerkinnät (tunnetaan myös metadatana)"
@@ -1153,11 +1235,13 @@ msgstr "Älä tulosta mitään edistymistietoa"
 msgid "Output messages"
 msgstr "Tulosteviestit"
 
-msgid "Do not output status information of TYPE"
-msgstr "Älä tulosta tilatietoa TYYPPI"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TYYPPI1,TYYPPI2,..."
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr "Älä asenna virheenkäsittelintä"
@@ -1242,6 +1326,27 @@ msgstr "Asetetaan liukuhihna tilaan TYHJÄ...\n"
 msgid "Freeing pipeline ...\n"
 msgstr "Vapautetaan liukuhihna...\n"
 
+#~ msgid "Internal data stream error."
+#~ msgstr "Sisäinen tietovirtavirhe."
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "Älä tulosta tilatietoa TYYPPI"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "TYYPPI1,TYYPPI2,..."
+
+#~ msgid "link without source element"
+#~ msgstr "linkki ilman lähde-elementtiä"
+
+#~ msgid "link without sink element"
+#~ msgstr "linkki ilman nieluelementtiä"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "ei elementtiä, jota linkittää URIin ”%s”"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "nieluelementtiä ei voitu linkittää URIlle ”%s”"
+
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr "Tulosta varausjälki (jos valittu käännöksen yhteydessä)"
 
@@ -1272,9 +1377,6 @@ msgstr "Vapautetaan liukuhihna...\n"
 
 #~ msgid "Do not install signal handlers for SIGUSR1 and SIGUSR2"
 #~ msgstr "Älä asenna SIGUSR1- ja SIGUSR2-signaalinkäsittelijöitä"
-
-#~ msgid "Error writing registry cache to %s: %s"
-#~ msgstr "Virhe kirjoitettaessa rekisterivälimuistia kohteeseen %s: %s"
 
 #~ msgid "Error re-scanning registry %s: %s"
 #~ msgstr "Virhe uudelleenskannatessa rekisteriä %s: %s"

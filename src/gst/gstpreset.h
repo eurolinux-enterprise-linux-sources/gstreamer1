@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_PRESET_H__
@@ -97,6 +97,7 @@ gboolean     gst_preset_get_meta           (GstPreset *preset, const gchar *name
 gboolean     gst_preset_set_app_dir        (const gchar *app_dir);
 const gchar *gst_preset_get_app_dir        (void);
 
+gboolean     gst_preset_is_editable        (GstPreset *preset);
 G_END_DECLS
 
 #endif /* __GST_PRESET_H__ */

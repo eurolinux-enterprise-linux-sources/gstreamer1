@@ -18,8 +18,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include <unistd.h>
@@ -460,6 +460,7 @@ GST_START_TEST (test_flow_aggregation)
   GstPad *teesink, *teesrc1, *teesrc2;
   GstElement *tee;
   GstBuffer *buffer;
+  GstSegment segment;
   GstCaps *caps;
 
   caps = gst_caps_new_empty_simple ("test/test");
@@ -477,19 +478,20 @@ GST_START_TEST (test_flow_aggregation)
   mysink1 = gst_pad_new ("mysink1", GST_PAD_SINK);
   gst_pad_set_chain_function (mysink1, _fake_chain);
   gst_pad_set_active (mysink1, TRUE);
-  gst_pad_set_caps (mysink1, caps);
 
   GST_DEBUG ("Creating mysink2");
   mysink2 = gst_pad_new ("mysink2", GST_PAD_SINK);
   gst_pad_set_chain_function (mysink2, _fake_chain);
   gst_pad_set_active (mysink2, TRUE);
-  gst_pad_set_caps (mysink2, caps);
 
   GST_DEBUG ("Creating mysrc");
   mysrc = gst_pad_new ("mysrc", GST_PAD_SRC);
   gst_pad_set_active (mysrc, TRUE);
-  gst_pad_set_caps (mysrc, caps);
 
+  gst_segment_init (&segment, GST_FORMAT_BYTES);
+  gst_pad_push_event (mysrc, gst_event_new_stream_start ("test"));
+  gst_pad_set_caps (mysrc, caps);
+  gst_pad_push_event (mysrc, gst_event_new_segment (&segment));
 
   fail_unless (gst_pad_link (mysrc, teesink) == GST_PAD_LINK_OK);
   fail_unless (gst_pad_link (teesrc1, mysink1) == GST_PAD_LINK_OK);
@@ -516,7 +518,6 @@ GST_START_TEST (test_flow_aggregation)
   GST_DEBUG ("Trying to push with mysink2 disabled");
   gst_pad_set_active (mysink1, FALSE);
   gst_pad_set_active (mysink2, TRUE);
-  gst_pad_set_caps (mysink2, caps);
   fail_unless (gst_pad_push (mysrc,
           gst_buffer_ref (buffer)) == GST_FLOW_FLUSHING);
 
@@ -528,9 +529,7 @@ GST_START_TEST (test_flow_aggregation)
   /* Test if everything still works in normal state */
   GST_DEBUG ("Reactivate both pads and try pushing");
   gst_pad_set_active (mysink1, TRUE);
-  gst_pad_set_caps (mysink1, caps);
   gst_pad_set_active (mysink2, TRUE);
-  gst_pad_set_caps (mysink2, caps);
   fail_unless (gst_pad_push (mysrc, gst_buffer_ref (buffer)) == GST_FLOW_OK);
 
   /* One unlinked pad must return OK, two unlinked pads must return NOT_LINKED */
@@ -598,6 +597,107 @@ GST_START_TEST (test_flow_aggregation)
 
 GST_END_TEST;
 
+GST_START_TEST (test_request_pads)
+{
+  GstElement *tee;
+  GstPad *srcpad1, *srcpad2, *srcpad3, *srcpad4;
+
+  tee = gst_check_setup_element ("tee");
+
+  srcpad1 = gst_element_get_request_pad (tee, "src_%u");
+  fail_unless (srcpad1 != NULL);
+  fail_unless_equals_string (GST_OBJECT_NAME (srcpad1), "src_0");
+  srcpad2 = gst_element_get_request_pad (tee, "src_100");
+  fail_unless (srcpad2 != NULL);
+  fail_unless_equals_string (GST_OBJECT_NAME (srcpad2), "src_100");
+  srcpad3 = gst_element_get_request_pad (tee, "src_10");
+  fail_unless (srcpad3 != NULL);
+  fail_unless_equals_string (GST_OBJECT_NAME (srcpad3), "src_10");
+  srcpad4 = gst_element_get_request_pad (tee, "src_%u");
+  fail_unless (srcpad4 != NULL);
+
+  gst_object_unref (srcpad1);
+  gst_object_unref (srcpad2);
+  gst_object_unref (srcpad3);
+  gst_object_unref (srcpad4);
+  gst_object_unref (tee);
+}
+
+GST_END_TEST;
+
+GST_START_TEST (test_allow_not_linked)
+{
+  GstElement *tee;
+  GstPad *src1, *src2;
+  GstBuffer *buffer;
+  GstPad *srcpad;
+  GstCaps *caps;
+  GstSegment segment;
+
+  static GstStaticPadTemplate srctemplate = GST_STATIC_PAD_TEMPLATE ("src",
+      GST_PAD_SRC,
+      GST_PAD_ALWAYS,
+      GST_STATIC_CAPS_ANY);
+
+  caps = gst_caps_new_empty_simple ("test/test");
+
+  tee = gst_check_setup_element ("tee");
+  fail_unless (tee);
+  g_object_set (tee, "allow-not-linked", TRUE, NULL);
+
+  srcpad = gst_check_setup_src_pad (tee, &srctemplate);
+  gst_pad_set_active (srcpad, TRUE);
+
+  gst_pad_push_event (srcpad, gst_event_new_stream_start ("test"));
+  gst_segment_init (&segment, GST_FORMAT_BYTES);
+  gst_pad_push_event (srcpad, gst_event_new_stream_start ("test"));
+  gst_pad_set_caps (srcpad, caps);
+  gst_caps_unref (caps);
+  gst_pad_push_event (srcpad, gst_event_new_segment (&segment));
+
+  fail_unless (gst_element_set_state (tee,
+          GST_STATE_PLAYING) == GST_STATE_CHANGE_SUCCESS);
+
+  buffer = gst_buffer_new ();
+  fail_unless (buffer);
+
+  fail_unless (gst_pad_push (srcpad, gst_buffer_ref (buffer)) == GST_FLOW_OK);
+
+  src1 = gst_element_get_request_pad (tee, "src_%u");
+
+  fail_unless (gst_pad_push (srcpad, gst_buffer_ref (buffer)) == GST_FLOW_OK);
+
+  src2 = gst_element_get_request_pad (tee, "src_%u");
+
+  fail_unless (gst_pad_push (srcpad, gst_buffer_ref (buffer)) == GST_FLOW_OK);
+
+  g_object_set (tee, "allow-not-linked", FALSE, NULL);
+
+  fail_unless (gst_pad_push (srcpad,
+          gst_buffer_ref (buffer)) == GST_FLOW_NOT_LINKED);
+
+  gst_element_release_request_pad (tee, src1);
+
+  fail_unless (gst_pad_push (srcpad,
+          gst_buffer_ref (buffer)) == GST_FLOW_NOT_LINKED);
+
+  gst_element_release_request_pad (tee, src2);
+  g_object_unref (src1);
+  g_object_unref (src2);
+
+  fail_unless (gst_pad_push (srcpad,
+          gst_buffer_ref (buffer)) == GST_FLOW_NOT_LINKED);
+
+  gst_pad_set_active (srcpad, FALSE);
+  gst_check_teardown_src_pad (tee);
+  gst_check_teardown_element (tee);
+
+  fail_if (buffer->mini_object.refcount != 1);
+  gst_buffer_unref (buffer);
+}
+
+GST_END_TEST;
+
 static Suite *
 tee_suite (void)
 {
@@ -614,6 +714,8 @@ tee_suite (void)
   tcase_add_test (tc_chain, test_release_while_second_buffer_alloc);
   tcase_add_test (tc_chain, test_internal_links);
   tcase_add_test (tc_chain, test_flow_aggregation);
+  tcase_add_test (tc_chain, test_request_pads);
+  tcase_add_test (tc_chain, test_allow_not_linked);
 
   return s;
 }

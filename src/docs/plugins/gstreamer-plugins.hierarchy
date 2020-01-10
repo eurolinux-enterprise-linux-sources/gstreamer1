@@ -2,7 +2,7 @@ GObject
   GInitiallyUnowned
     GstObject
       GstAllocator
-        GstDefaultAllocator
+        GstAllocatorSysmem
       GstBus
       GstClock
       GstControlBinding
@@ -22,12 +22,15 @@ GObject
           GstIdentity
         GstBin
           GstPipeline
+        GstConcat
+        GstDownloadBuffer
         GstFunnel
         GstInputSelector
         GstMultiQueue
         GstOutputSelector
         GstQueue
         GstQueue2
+        GstStreamidDemux
         GstTee
         GstTypeFindElement
         GstValve
@@ -35,11 +38,19 @@ GObject
       GstPadTemplate
       GstPlugin
       GstPluginFeature
+        GstDeviceProviderFactory
         GstElementFactory
+        GstTracerFactory
         GstTypeFindFactory
       GstRegistry
       GstTask
       GstTaskPool
+      GstTracer
+        GstLatencyTracer
+        GstLeaksTracer
+        GstLogTracer
+        GstRUsageTracer
+        GstStatsTracer
 GInterface
   GTypePlugin
   GstChildProxy

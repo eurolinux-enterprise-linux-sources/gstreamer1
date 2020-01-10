@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer-0.10.30.3\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2010-11-29 11:14+0200\n"
 "Last-Translator: Michael Kotsarinis <mk73628@gmail.com>\n"
 "Language-Team: Greek <team@lists.gnome.gr>\n"
@@ -27,8 +27,9 @@ msgstr "Να γίνουν όλες οι προειδοποιήσεις κρίσ�
 msgid "Print available debug categories and exit"
 msgstr "Εμφάνιση διαθέσιμων κατηγοριών σφαλμάτων και έξοδος"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Προεπιλεγμένο επίπεδο αποσφαλμάτωσης από 1 (μόνο λάθος) έως 5 (οτιδήποτε) ή "
 "0 για καθόλου αποτέλεσμα"
@@ -49,6 +50,11 @@ msgstr "LIST"
 
 msgid "Disable colored debugging output"
 msgstr "Απενεργοποίηση έγχρωμων αποτελεσμάτων αποσφαλμάτωσης"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Απενεργοποίηση αποσφαλμάτωσης"
@@ -201,6 +207,10 @@ msgstr "Αδυναμία λήψης/ορισμού ρυθμίσεων από τ�
 msgid "No space left on the resource."
 msgstr "Δεν έχει μείνει χώρος στον πόρο."
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "Δεν έχει μείνει χώρος στον πόρο."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "Το GStreamer συνάντησε ένα γενικό σφάλμα ροής."
 
@@ -256,6 +266,10 @@ msgstr ""
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "Το επιλεγμένο ρολόι δεν μπορεί να χρησιμοποιηθεί στη διασωλήνωση."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr ""
 
 msgid "title"
 msgstr "τίτλος"
@@ -334,8 +348,8 @@ msgstr "εκτεταμένο σχόλιο"
 
 msgid "free text commenting the data in key=value or key[en]=comment form"
 msgstr ""
-"ελεύθερο κείμενο σχολιασμού των δεδομένων της μορφής key=value ή key[en]"
-"=comment"
+"ελεύθερο κείμενο σχολιασμού των δεδομένων της μορφής key=value ή "
+"key[en]=comment"
 
 msgid "track number"
 msgstr "αριθμός κομματιού"
@@ -451,6 +465,12 @@ msgstr "συνθέτης"
 
 msgid "person(s) who composed the recording"
 msgstr "πρόσωπο(α) που συνέθεσε την ηχογράφηση."
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr "διάρκεια"
@@ -808,8 +828,40 @@ msgid "How the image should be rotated or flipped before display"
 msgstr ""
 "Πως θα πρέπει να περιστραφεί ή καθρεφτιστεί η εικόνα πριν την εμφάνισή της"
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -824,12 +876,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "ο καθορισμένος άδειος περιέκτης «%s», δεν επιτρέπεται"
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "δεν υπάρχει περιέκτης «%s», παράβλεψη"
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -838,6 +890,9 @@ msgstr "δεν υπάρχει ιδιότητα «%s» στο στοιχείο «
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "αδυναμία ορισμού ιδιότητας «%s» στο στοιχείο «%s» σε «%s»"
+
+msgid "Delayed linking failed."
+msgstr ""
 
 #, c-format
 msgid "could not link %s to %s"
@@ -848,42 +903,38 @@ msgid "no element \"%s\""
 msgstr "δεν υπάρχει στοιχείο «%s»"
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "αδυναμία ανάλυσης δυνατοτήτων «%s»"
-
-msgid "link without source element"
-msgstr "σύνδεση χωρίς στοιχείο προέλευσης"
-
-msgid "link without sink element"
-msgstr "σύνδεση χωρίς στοιχείο προορισμού"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "δεν υπάρχει στοιχείο προέλευσης για το URI «%s»"
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "δεν υπάρχει στοιχείο για τη σύνδεση του URI «%s» σε"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "δεν υπάρχει στοιχείο προορισμού για το URI «%s»"
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "αδυναμία σύνδεσης στοιχείου προορισμού για το URI «%s»"
+msgid "no source element for URI \"%s\""
+msgstr "δεν υπάρχει στοιχείο προέλευσης για το URI «%s»"
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "ο καθορισμένος άδειος περιέκτης «%s», δεν επιτρέπεται"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "δεν υπάρχει περιέκτης «%s», παράβλεψη"
 
 msgid "empty pipeline not allowed"
 msgstr "δεν επιτρέπεται κενή διασωλήνωση"
-
-msgid "Internal clock error."
-msgstr "Σφάλμα εσωτερικού ρολογιού."
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr "Εσωτερικό σφάλμα ροής δεδομένων."
 
 msgid "A lot of buffers are being dropped."
 msgstr "Πολλές ενδιάμεσες αποθηκεύσεις απορρίπτονται."
@@ -891,8 +942,14 @@ msgstr "Πολλές ενδιάμεσες αποθηκεύσεις απορρί�
 msgid "Internal data flow problem."
 msgstr "Εσωτερικό πρόβλημα ροής δεδομένων."
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
 msgstr "Εσωτερικό σφάλμα ροής δεδομένων."
+
+msgid "Internal clock error."
+msgstr "Σφάλμα εσωτερικού ρολογιού."
+
+msgid "Failed to map buffer."
+msgstr ""
 
 msgid "Filter caps"
 msgstr "Φιλτράρισμα δυνατοτήτων"
@@ -904,6 +961,26 @@ msgstr ""
 "Περιορισμός των πιθανών επιτρεπόμενων δυνατοτήτων (NULL σημαίνει ANY). Η "
 "ρύθμιση αυτής της ιδιότητας απαιτεί μια αναφορά στο παρεχόμενο αντικείμενο "
 "GstCaps."
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr "Δεν ορίσθηκε προσωρινός κατάλογος (Temp)."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Αδυναμία δημιουργίας προσωρινού αρχείου (temp) «%s»."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Αδυναμία ανοίγματος αρχείου «%s» για ανάγνωση."
+
+msgid "Error while writing to download file."
+msgstr "Σφάλμα κατά την εγγραφή στο αρχείο μεταφόρτωσης."
 
 msgid "No file name specified for writing."
 msgstr "Δεν έχει καθορισθεί όνομα αρχείου για εγγραφή."
@@ -928,10 +1005,6 @@ msgid "No file name specified for reading."
 msgstr "Δεν καθορίσθηκε όνομα αρχείου για ανάγνωση."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Αδυναμία ανοίγματος αρχείου «%s» για ανάγνωση."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Αδυναμία λήψης πληροφοριών για «%s»."
 
@@ -945,16 +1018,6 @@ msgstr "Το αρχείο «%s» είναι μια υποδοχή."
 
 msgid "Failed after iterations as requested."
 msgstr "Αποτυχία κατόπιν επαναλήψεων ως ζητήθηκε."
-
-msgid "No Temp directory specified."
-msgstr "Δεν ορίσθηκε προσωρινός κατάλογος (Temp)."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Αδυναμία δημιουργίας προσωρινού αρχείου (temp) «%s»."
-
-msgid "Error while writing to download file."
-msgstr "Σφάλμα κατά την εγγραφή στο αρχείο μεταφόρτωσης."
 
 msgid "caps"
 msgstr "δυνατότητες"
@@ -971,6 +1034,10 @@ msgstr "επιβολή δυνατοτήτων"
 msgid "force caps without doing a typefind"
 msgstr "επιβολή δυνατοτήτων χωρίς εκτέλεση typefind"
 
+#, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "Η ροή δεν περιέχει δεδομένα."
+
 msgid "Stream contains no data."
 msgstr "Η ροή δεν περιέχει δεδομένα."
 
@@ -982,6 +1049,9 @@ msgstr "αναγνώσιμο"
 
 msgid "writable"
 msgstr "εγγράψιμο"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr "ελεγχόμενο"
@@ -1129,6 +1199,10 @@ msgstr "WARNING: από το στοιχείο %s: %s\n"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr "Προτυλιγμένο, αναμονή για ολοκλήρωση η αποθήκευση ροής…\n"
 
+#, fuzzy
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr "Προτυλιγμένο, αναμονή για ολοκλήρωση η αποθήκευση ροής…\n"
+
 msgid "buffering..."
 msgstr "προσωρινή αποθήκευση…"
 
@@ -1148,9 +1222,17 @@ msgstr "Ορισμός κατάστασης σε %s όπως ζητήθηκε α
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Διακοπή: Τερματισμός διασωλήνωσης…\n"
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "δεν υπάρχει στοιχείο «%s»"
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "WARNING: από το στοιχείο %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Ετικέτες εξόδου (επίσης γνωστές ως μεταδεδομένα)"
@@ -1167,11 +1249,13 @@ msgstr "Να μην εμφανισθεί καμμία πληροφορία πρ�
 msgid "Output messages"
 msgstr "Μηνύματα εξόδου"
 
-msgid "Do not output status information of TYPE"
-msgstr "Να μην εξάγεται πληροφορία κατάστασης εξόδου του TYPE"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TYPE1,TYPE2,…"
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr "Να μην εγκατασταθεί χειριστής σφαλμάτων"
@@ -1253,6 +1337,27 @@ msgstr "Ορισμός διασωλήνωσης σε NULL …\n"
 
 msgid "Freeing pipeline ...\n"
 msgstr "Αποδέσμευση της διασωλήνωσης …\n"
+
+#~ msgid "Internal data stream error."
+#~ msgstr "Εσωτερικό σφάλμα ροής δεδομένων."
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "Να μην εξάγεται πληροφορία κατάστασης εξόδου του TYPE"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "TYPE1,TYPE2,…"
+
+#~ msgid "link without source element"
+#~ msgstr "σύνδεση χωρίς στοιχείο προέλευσης"
+
+#~ msgid "link without sink element"
+#~ msgstr "σύνδεση χωρίς στοιχείο προορισμού"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "δεν υπάρχει στοιχείο για τη σύνδεση του URI «%s» σε"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "αδυναμία σύνδεσης στοιχείου προορισμού για το URI «%s»"
 
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr ""

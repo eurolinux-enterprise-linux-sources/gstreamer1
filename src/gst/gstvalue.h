@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_VALUE_H__
@@ -23,6 +23,7 @@
 #include <gst/gstconfig.h>
 #include <gst/gstcaps.h>
 #include <gst/gststructure.h>
+#include <gst/gstcapsfeatures.h>
 
 G_BEGIN_DECLS
 
@@ -79,19 +80,21 @@ G_BEGIN_DECLS
  * Can be used together with #GST_FOURCC_FORMAT to properly output a
  * #guint32 fourcc value in a printf()-style text message.
  */
-#define GST_FOURCC_ARGS(fourcc) \
-        ((gchar) ((fourcc)     &0xff)), \
-        ((gchar) (((fourcc)>>8 )&0xff)), \
-        ((gchar) (((fourcc)>>16)&0xff)), \
-        ((gchar) (((fourcc)>>24)&0xff))
 
+#define __GST_PRINT_CHAR(c) \
+  g_ascii_isprint(c) ? (c) : '.'
+#define GST_FOURCC_ARGS(fourcc)               \
+  __GST_PRINT_CHAR((fourcc) & 0xff),          \
+  __GST_PRINT_CHAR(((fourcc) >> 8) & 0xff),   \
+  __GST_PRINT_CHAR(((fourcc) >> 16) & 0xff),  \
+  __GST_PRINT_CHAR(((fourcc) >> 24) & 0xff)
 /**
  * GST_VALUE_HOLDS_INT_RANGE:
  * @x: the #GValue to check
  *
  * Checks if the given #GValue contains a #GST_TYPE_INT_RANGE value.
  */
-#define GST_VALUE_HOLDS_INT_RANGE(x)    (G_VALUE_HOLDS((x), gst_int_range_get_type ()))
+#define GST_VALUE_HOLDS_INT_RANGE(x)      ((x) != NULL && G_VALUE_TYPE(x) == _gst_int_range_type)
 
 /**
  * GST_VALUE_HOLDS_INT64_RANGE:
@@ -99,7 +102,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_INT64_RANGE value.
  */
-#define GST_VALUE_HOLDS_INT64_RANGE(x)    (G_VALUE_HOLDS((x), gst_int64_range_get_type ()))
+#define GST_VALUE_HOLDS_INT64_RANGE(x)    ((x) != NULL && G_VALUE_TYPE(x) == _gst_int64_range_type)
 
 /**
  * GST_VALUE_HOLDS_DOUBLE_RANGE:
@@ -107,7 +110,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_DOUBLE_RANGE value.
  */
-#define GST_VALUE_HOLDS_DOUBLE_RANGE(x) (G_VALUE_HOLDS((x), gst_double_range_get_type ()))
+#define GST_VALUE_HOLDS_DOUBLE_RANGE(x)   ((x) != NULL && G_VALUE_TYPE(x) == _gst_double_range_type)
 
 /**
  * GST_VALUE_HOLDS_FRACTION_RANGE:
@@ -115,7 +118,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_FRACTION_RANGE value.
  */
-#define GST_VALUE_HOLDS_FRACTION_RANGE(x)    (G_VALUE_HOLDS((x), gst_fraction_range_get_type ()))
+#define GST_VALUE_HOLDS_FRACTION_RANGE(x) ((x) != NULL && G_VALUE_TYPE(x) == _gst_fraction_range_type)
 
 /**
  * GST_VALUE_HOLDS_LIST:
@@ -123,7 +126,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_LIST value.
  */
-#define GST_VALUE_HOLDS_LIST(x)         (G_VALUE_HOLDS((x), gst_value_list_get_type ()))
+#define GST_VALUE_HOLDS_LIST(x)         ((x) != NULL && G_VALUE_TYPE(x) == _gst_value_list_type)
 
 /**
  * GST_VALUE_HOLDS_ARRAY:
@@ -131,7 +134,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_ARRAY value.
  */
-#define GST_VALUE_HOLDS_ARRAY(x)        (G_VALUE_HOLDS((x), gst_value_array_get_type ()))
+#define GST_VALUE_HOLDS_ARRAY(x)        ((x) != NULL && G_VALUE_TYPE(x) == _gst_value_array_type)
 
 /**
  * GST_VALUE_HOLDS_CAPS:
@@ -139,7 +142,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_CAPS value.
  */
-#define GST_VALUE_HOLDS_CAPS(x)         (G_VALUE_HOLDS((x), GST_TYPE_CAPS))
+#define GST_VALUE_HOLDS_CAPS(x)         ((x) != NULL && G_VALUE_TYPE(x) == _gst_caps_type)
 
 /**
  * GST_VALUE_HOLDS_STRUCTURE:
@@ -147,7 +150,15 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_STRUCTURE value.
  */
-#define GST_VALUE_HOLDS_STRUCTURE(x)            (G_VALUE_HOLDS((x), GST_TYPE_STRUCTURE))
+#define GST_VALUE_HOLDS_STRUCTURE(x)            (G_VALUE_HOLDS((x), _gst_structure_type))
+
+/**
+ * GST_VALUE_HOLDS_CAPS_FEATURES:
+ * @x: the #GValue to check
+ *
+ * Checks if the given #GValue contains a #GST_TYPE_CAPS_FEATURES value.
+ */
+#define GST_VALUE_HOLDS_CAPS_FEATURES(x)        (G_VALUE_HOLDS((x), _gst_caps_features_type))
 
 /**
  * GST_VALUE_HOLDS_BUFFER:
@@ -155,7 +166,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_BUFFER value.
  */
-#define GST_VALUE_HOLDS_BUFFER(x)       (G_VALUE_HOLDS((x), GST_TYPE_BUFFER))
+#define GST_VALUE_HOLDS_BUFFER(x)       ((x) != NULL && G_VALUE_TYPE(x) == _gst_buffer_type)
 
 /**
  * GST_VALUE_HOLDS_SAMPLE:
@@ -163,7 +174,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_SAMPLE value.
  */
-#define GST_VALUE_HOLDS_SAMPLE(x)       (G_VALUE_HOLDS((x), GST_TYPE_SAMPLE))
+#define GST_VALUE_HOLDS_SAMPLE(x)       ((x) != NULL && G_VALUE_TYPE(x) == _gst_sample_type)
 
 /**
  * GST_VALUE_HOLDS_FRACTION:
@@ -171,7 +182,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_FRACTION value.
  */
-#define GST_VALUE_HOLDS_FRACTION(x)     (G_VALUE_HOLDS((x), gst_fraction_get_type ()))
+#define GST_VALUE_HOLDS_FRACTION(x)     ((x) != NULL && G_VALUE_TYPE(x) == _gst_fraction_type)
 
 /**
  * GST_VALUE_HOLDS_DATE_TIME:
@@ -179,7 +190,7 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_DATE_TIME value.
  */
-#define GST_VALUE_HOLDS_DATE_TIME(x)    (G_VALUE_HOLDS((x), gst_date_time_get_type ()))
+#define GST_VALUE_HOLDS_DATE_TIME(x)    ((x) != NULL && G_VALUE_TYPE(x) == _gst_date_time_type)
 
 /**
  * GST_VALUE_HOLDS_BITMASK:
@@ -187,7 +198,29 @@ G_BEGIN_DECLS
  *
  * Checks if the given #GValue contains a #GST_TYPE_BITMASK value.
  */
-#define GST_VALUE_HOLDS_BITMASK(x)      (G_VALUE_HOLDS((x), gst_bitmask_get_type ()))
+#define GST_VALUE_HOLDS_BITMASK(x)      ((x) != NULL && G_VALUE_TYPE(x) == _gst_bitmask_type)
+
+/**
+ * GST_VALUE_HOLDS_FLAG_SET:
+ * @x: the #GValue to check
+ *
+ * Checks if the given #GValue contains a #GST_TYPE_FLAG_SET value.
+ *
+ * Since: 1.6
+ */
+#define GST_VALUE_HOLDS_FLAG_SET(x)     (G_TYPE_CHECK_VALUE_TYPE ((x), GST_TYPE_FLAG_SET))
+
+/*
+ * GST_FLAG_SET_MASK_EXACT:
+ * A mask value with all bits set, for use as a
+ * #GstFlagSet mask where all flag bits must match
+ * exactly
+ *
+ * Since: 1.6
+ */
+#define GST_FLAG_SET_MASK_EXACT ((guint)(-1))
+
+GST_EXPORT GType _gst_int_range_type;
 
 /**
  * GST_TYPE_INT_RANGE:
@@ -196,7 +229,9 @@ G_BEGIN_DECLS
  *
  * Returns: the #GType of GstIntRange
  */
-#define GST_TYPE_INT_RANGE               gst_int_range_get_type ()
+#define GST_TYPE_INT_RANGE               (_gst_int_range_type)
+
+GST_EXPORT GType _gst_int64_range_type;
 
 /**
  * GST_TYPE_INT64_RANGE:
@@ -205,16 +240,20 @@ G_BEGIN_DECLS
  *
  * Returns: the #GType of GstInt64Range
  */
-#define GST_TYPE_INT64_RANGE             gst_int64_range_get_type ()
+#define GST_TYPE_INT64_RANGE             (_gst_int64_range_type)
+
+GST_EXPORT GType _gst_double_range_type;
 
 /**
  * GST_TYPE_DOUBLE_RANGE:
  *
- * a #GValue type that represents a floating point range with double precission
+ * a #GValue type that represents a floating point range with double precision
  *
  * Returns: the #GType of GstIntRange
  */
-#define GST_TYPE_DOUBLE_RANGE            gst_double_range_get_type ()
+#define GST_TYPE_DOUBLE_RANGE            (_gst_double_range_type)
+
+GST_EXPORT GType _gst_fraction_range_type;
 
 /**
  * GST_TYPE_FRACTION_RANGE:
@@ -223,7 +262,9 @@ G_BEGIN_DECLS
  *
  * Returns: the #GType of GstFractionRange
  */
-#define GST_TYPE_FRACTION_RANGE            gst_fraction_range_get_type ()
+#define GST_TYPE_FRACTION_RANGE           (_gst_fraction_range_type)
+
+GST_EXPORT GType _gst_value_list_type;
 
 /**
  * GST_TYPE_LIST:
@@ -236,7 +277,9 @@ G_BEGIN_DECLS
  *
  * Returns: the #GType of GstValueList (which is not explicitly typed)
  */
-#define GST_TYPE_LIST                    gst_value_list_get_type ()
+#define GST_TYPE_LIST                    (_gst_value_list_type)
+
+GST_EXPORT GType _gst_value_array_type;
 
 /**
  * GST_TYPE_ARRAY:
@@ -250,7 +293,9 @@ G_BEGIN_DECLS
  *
  * Returns: the #GType of GstArrayList (which is not explicitly typed)
  */
-#define GST_TYPE_ARRAY                   gst_value_array_get_type ()
+#define GST_TYPE_ARRAY                   (_gst_value_array_type)
+
+GST_EXPORT GType _gst_fraction_type;
 
 /**
  * GST_TYPE_FRACTION:
@@ -261,17 +306,9 @@ G_BEGIN_DECLS
  * Returns: the #GType of GstFraction (which is not explicitly typed)
  */
 
-#define GST_TYPE_FRACTION                gst_fraction_get_type ()
+#define GST_TYPE_FRACTION                (_gst_fraction_type)
 
-/**
- * GST_TYPE_DATE_TIME:
- *
- * a boxed #GValue type for #GstDateTime that represents a date and time.
- *
- * Returns: the #GType of GstDateTime
- */
-
-#define GST_TYPE_DATE_TIME               gst_date_time_get_type ()
+GST_EXPORT GType _gst_bitmask_type;
 
 /**
  * GST_TYPE_BITMASK:
@@ -281,7 +318,32 @@ G_BEGIN_DECLS
  * Returns: the #GType of GstBitmask (which is not explicitly typed)
  */
 
-#define GST_TYPE_BITMASK                 gst_bitmask_get_type ()
+#define GST_TYPE_BITMASK                 (_gst_bitmask_type)
+
+GST_EXPORT GType _gst_flagset_type;
+
+/**
+ * GST_TYPE_FLAG_SET:
+ *
+ * a #GValue type that represents a 32-bit flag bitfield, with 32-bit
+ * mask indicating which of the bits in the field are explicitly set.
+ * Useful for negotiation.
+ *
+ * Returns: the #GType of GstFlags (which is not explicitly typed)
+ *
+ * Since: 1.6
+ */
+#define GST_TYPE_FLAG_SET                   (_gst_flagset_type)
+
+/**
+ * GST_TYPE_G_THREAD:
+ *
+ * a boxed #GValue type for #GThread that represents a thread.
+ *
+ * Returns: the #GType of GstGThread
+ */
+
+#define GST_TYPE_G_THREAD                gst_g_thread_get_type ()
 
 /**
  * GST_VALUE_LESS_THAN:
@@ -380,8 +442,12 @@ GType gst_fraction_get_type (void);
 GType gst_value_list_get_type (void);
 GType gst_value_array_get_type (void);
 GType gst_bitmask_get_type (void);
+GType gst_flagset_get_type (void);
 
-GType gst_date_time_get_type (void);
+/* Hide this compatibility type from introspection */
+#ifndef __GI_SCANNER__
+GType gst_g_thread_get_type (void);
+#endif
 
 void            gst_value_register              (const GstValueTable   *table);
 void            gst_value_init_and_copy         (GValue                *dest,
@@ -394,6 +460,8 @@ gboolean        gst_value_deserialize           (GValue                *dest,
 /* list */
 void            gst_value_list_append_value     (GValue         *value,
                                                  const GValue   *append_value);
+void            gst_value_list_append_and_take_value (GValue         *value,
+                                                 GValue   *append_value);
 void            gst_value_list_prepend_value    (GValue         *value,
                                                  const GValue   *prepend_value);
 void            gst_value_list_concat           (GValue         *dest,
@@ -409,6 +477,8 @@ const GValue *  gst_value_list_get_value        (const GValue   *value,
 /* array */
 void            gst_value_array_append_value    (GValue         *value,
                                                  const GValue   *append_value);
+void            gst_value_array_append_and_take_value    (GValue         *value,
+                                                 GValue   *append_value);
 void            gst_value_array_prepend_value   (GValue         *value,
                                                  const GValue   *prepend_value);
 guint           gst_value_array_get_size        (const GValue   *value);
@@ -457,6 +527,12 @@ const GstStructure *
 void            gst_value_set_structure         (GValue         *value,
                                                  const GstStructure  *structure);
 
+/* caps features */
+const GstCapsFeatures *
+                gst_value_get_caps_features     (const GValue   *value);
+void            gst_value_set_caps_features     (GValue         *value,
+                                                 const GstCapsFeatures  *features);
+
 /* fraction */
 void            gst_value_set_fraction          (GValue         *value,
                                                  gint           numerator,
@@ -486,6 +562,10 @@ const GValue    *gst_value_get_fraction_range_max (const GValue *value);
 guint64         gst_value_get_bitmask           (const GValue   *value);
 void            gst_value_set_bitmask           (GValue         *value,
                                                  guint64         bitmask);
+/* flagset */
+void            gst_value_set_flagset (GValue * value, guint flags, guint mask);
+guint           gst_value_get_flagset_flags (const GValue * value);
+guint           gst_value_get_flagset_mask (const GValue * value);
 
 /* compare */
 gint            gst_value_compare               (const GValue   *value1,
@@ -520,6 +600,9 @@ gboolean        gst_value_can_subtract          (const GValue   *minuend,
 gboolean        gst_value_is_fixed              (const GValue   *value);
 gboolean        gst_value_fixate                (GValue         *dest,
                                                  const GValue   *src);
+
+/* Flagset registration wrapper */
+GType		gst_flagset_register (GType flags_type);
 
 G_END_DECLS
 

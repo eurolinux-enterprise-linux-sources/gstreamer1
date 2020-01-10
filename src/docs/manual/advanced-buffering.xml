@@ -73,7 +73,7 @@
         }
       } else {
         /* buffering busy */
-        if (buffering == FALSE && target_state == GST_STATE_PLAYING) {
+        if (!buffering && target_state == GST_STATE_PLAYING) {
           /* we were not buffering but PLAYING, PAUSE  the pipeline. */
           gst_element_set_state (pipeline, GST_STATE_PAUSED);
         }
@@ -207,7 +207,7 @@
       the file on the server.
     </para>
     <para>
-      In this case, buffering messages will be emited as usual when the
+      In this case, buffering messages will be emitted as usual when the
       requested range is not within the downloaded area + buffersize. The
       buffering message will also contain an indication that incremental
       download is being performed. This flag can be used to let the application
@@ -233,7 +233,7 @@
     </para>
     <para>
       This mode is suitable for all live streams. As with the incremental
-      download mode, buffering messages are emited along with an indication
+      download mode, buffering messages are emitted along with an indication
       that timeshifting download is in progress.
     </para>
   </sect1>
@@ -246,7 +246,7 @@
       a queue (such as a jitterbuffer) or by other means (in the audiosink).
     </para>
     <para>
-      Buffering messages can be emited in those live pipelines as well and
+      Buffering messages can be emitted in those live pipelines as well and
       serve as an indication to the user of the latency buffering. The
       application usually does not react to these buffering messages with a
       state change.
@@ -349,7 +349,7 @@ on_message_buffering (GstBus *bus, GstMessage *message, gpointer user_data)
 
   if (percent < 100) {
     /* buffering busy */
-    if (is_buffering == FALSE) {
+    if (!is_buffering) {
       is_buffering = TRUE;
       if (target_state == GST_STATE_PLAYING) {
         /* we were not buffering but PLAYING, PAUSE  the pipeline. */
@@ -364,7 +364,7 @@ on_message_async_done (GstBus *bus, GstMessage *message, gpointer user_data)
 {
   GstElement *pipeline = user_data;
 
-  if (is_buffering == FALSE)
+  if (!is_buffering)
     gst_element_set_state (pipeline, target_state);
   else
     g_timeout_add (500, buffer_timeout, pipeline);

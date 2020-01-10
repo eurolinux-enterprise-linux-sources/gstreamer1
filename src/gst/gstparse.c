@@ -18,8 +18,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -27,7 +27,7 @@
  * @short_description: Get a pipeline from a text pipeline description
  *
  * These function allow to create a pipeline based on the syntax used in the
- * gst-launch utility (see man-page for syntax documentation).
+ * gst-launch-1.0 utility (see man-page for syntax documentation).
  *
  * Please note that these functions take several measures to create
  * somewhat dynamic pipelines. Due to that such pipelines are not always
@@ -139,7 +139,7 @@ gst_parse_context_free (GstParseContext * context)
  * of %GST_PARSE_ERROR_NO_SUCH_ELEMENT was returned.
  *
  * Returns: (transfer full) (array zero-terminated=1) (element-type gchar*): a
- *     NULL-terminated array of element factory name strings of missing
+ *     %NULL-terminated array of element factory name strings of missing
  *     elements. Free with g_strfreev() when no longer needed.
  */
 gchar **
@@ -204,10 +204,10 @@ _gst_parse_escape (const gchar * str)
  * @error: pointer to a #GError
  *
  * Create a new element based on command line syntax.
- * @error will contain an error message if an erroneuos pipeline is specified.
+ * @error will contain an error message if an erroneous pipeline is specified.
  * An error does not mean that the pipeline could not be constructed.
  *
- * Returns: (transfer full): a new element on success and %NULL on failure.
+ * Returns: (transfer floating): a new element on success and %NULL on failure.
  */
 GstElement *
 gst_parse_launchv (const gchar ** argv, GError ** error)
@@ -227,7 +227,7 @@ gst_parse_launchv (const gchar ** argv, GError ** error)
  * @error will contain an error message if an erroneous pipeline is specified.
  * An error does not mean that the pipeline could not be constructed.
  *
- * Returns: (transfer full): a new element on success; on failure, either %NULL
+ * Returns: (transfer floating): a new element on success; on failure, either %NULL
  *   or a partially-constructed bin or element will be returned and @error will
  *   be set (unless you passed #GST_PARSE_FLAG_FATAL_ERRORS in @flags, then
  *   %NULL will always be returned on failure)
@@ -304,9 +304,11 @@ gst_parse_launch (const gchar * pipeline_description, GError ** error)
  * the @error is set. In this case there was a recoverable parsing error and you
  * can try to play the pipeline.
  *
- * Returns: (transfer full): a new element on success, %NULL on failure. If
+ * Returns: (transfer floating): a new element on success, %NULL on failure. If
  *    more than one toplevel element is specified by the @pipeline_description,
- *    all elements are put into a #GstPipeline, which then is returned.
+ *    all elements are put into a #GstPipeline, which then is returned (unless
+ *    the GST_PARSE_FLAG_PLACE_IN_BIN flag is set, in which case they are put
+ *    in a #GstBin instead).
  */
 GstElement *
 gst_parse_launch_full (const gchar * pipeline_description,
@@ -314,6 +316,7 @@ gst_parse_launch_full (const gchar * pipeline_description,
 {
 #ifndef GST_DISABLE_PARSE
   GstElement *element;
+  GError *myerror = NULL;
 
   g_return_val_if_fail (pipeline_description != NULL, NULL);
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
@@ -321,15 +324,19 @@ gst_parse_launch_full (const gchar * pipeline_description,
   GST_CAT_INFO (GST_CAT_PIPELINE, "parsing pipeline description '%s'",
       pipeline_description);
 
-  element = priv_gst_parse_launch (pipeline_description, error, context, flags);
+  element = priv_gst_parse_launch (pipeline_description, &myerror, context,
+      flags);
 
   /* don't return partially constructed pipeline if FATAL_ERRORS was given */
-  if (G_UNLIKELY (error != NULL && *error != NULL && element != NULL)) {
+  if (G_UNLIKELY (myerror != NULL && element != NULL)) {
     if ((flags & GST_PARSE_FLAG_FATAL_ERRORS)) {
       gst_object_unref (element);
       element = NULL;
     }
   }
+
+  if (myerror)
+    g_propagate_error (error, myerror);
 
   return element;
 #else

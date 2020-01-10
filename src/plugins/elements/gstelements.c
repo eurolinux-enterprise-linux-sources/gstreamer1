@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 
@@ -28,6 +28,8 @@
 #include <gst/gst.h>
 
 #include "gstcapsfilter.h"
+#include "gstconcat.h"
+#include "gstdownloadbuffer.h"
 #include "gstfakesink.h"
 #include "gstfakesrc.h"
 #include "gstfdsrc.h"
@@ -44,12 +46,19 @@
 #include "gsttee.h"
 #include "gsttypefindelement.h"
 #include "gstvalve.h"
+#include "gststreamiddemux.h"
 
 static gboolean
 plugin_init (GstPlugin * plugin)
 {
   if (!gst_element_register (plugin, "capsfilter", GST_RANK_NONE,
           gst_capsfilter_get_type ()))
+    return FALSE;
+  if (!gst_element_register (plugin, "concat", GST_RANK_NONE,
+          gst_concat_get_type ()))
+    return FALSE;
+  if (!gst_element_register (plugin, "downloadbuffer", GST_RANK_NONE,
+          gst_download_buffer_get_type ()))
     return FALSE;
   if (!gst_element_register (plugin, "fakesrc", GST_RANK_NONE,
           gst_fake_src_get_type ()))
@@ -101,9 +110,13 @@ plugin_init (GstPlugin * plugin)
           gst_valve_get_type ()))
     return FALSE;
 
+  if (!gst_element_register (plugin, "streamiddemux", GST_RANK_PRIMARY,
+          gst_streamid_demux_get_type ()))
+    return FALSE;
+
   return TRUE;
 }
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR, GST_VERSION_MINOR, coreelements,
-    " GStreamer core elements", plugin_init, VERSION, GST_LICENSE,
+    "GStreamer core elements", plugin_init, VERSION, GST_LICENSE,
     GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN);

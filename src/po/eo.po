@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.10.32.2\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2011-06-04 21:11+0100\n"
 "Last-Translator: Kristjan SCHMIDT <kristjan.schmidt@googlemail.com>\n"
 "Language-Team: Esperanto <translation-team-eo@lists.sourceforge.net>\n"
@@ -27,7 +27,7 @@ msgid "Print available debug categories and exit"
 msgstr "Eligi disponeblaj sencimig-koategorioj kaj eliri"
 
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 
 msgid "LEVEL"
@@ -42,6 +42,11 @@ msgid "LIST"
 msgstr "LISTO"
 
 msgid "Disable colored debugging output"
+msgstr ""
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
 msgstr ""
 
 msgid "Disable debugging"
@@ -183,6 +188,10 @@ msgstr ""
 msgid "No space left on the resource."
 msgstr ""
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "Ne eblas skribi al la risurco."
+
 msgid "GStreamer encountered a general stream error."
 msgstr ""
 
@@ -230,6 +239,10 @@ msgid "No standard error message for domain %s and code %d."
 msgstr ""
 
 msgid "Selected clock cannot be used in pipeline."
+msgstr ""
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
 msgstr ""
 
 msgid "title"
@@ -415,6 +428,12 @@ msgid "composer"
 msgstr "komponisto"
 
 msgid "person(s) who composed the recording"
+msgstr ""
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
 msgstr ""
 
 msgid "duration"
@@ -739,8 +758,40 @@ msgstr ""
 msgid "How the image should be rotated or flipped before display"
 msgstr ""
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -753,11 +804,11 @@ msgid ""
 msgstr ""
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
+msgid "link has no source [sink=%s@%p]"
 msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
+msgid "link has no sink [source=%s@%p]"
 msgstr ""
 
 #, c-format
@@ -766,6 +817,9 @@ msgstr ""
 
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
+msgstr ""
+
+msgid "Delayed linking failed."
 msgstr ""
 
 #, c-format
@@ -777,21 +831,15 @@ msgid "no element \"%s\""
 msgstr "neniu elemento \"%s\""
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
-msgstr ""
-
-msgid "link without source element"
-msgstr ""
-
-msgid "link without sink element"
-msgstr ""
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr ""
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
 msgstr ""
 
 #, c-format
@@ -799,19 +847,21 @@ msgid "no sink element for URI \"%s\""
 msgstr ""
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
+msgid "no source element for URI \"%s\""
+msgstr ""
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr ""
+
+#, c-format
+msgid "no bin \"%s\", unpacking elements"
 msgstr ""
 
 msgid "empty pipeline not allowed"
-msgstr ""
-
-msgid "Internal clock error."
-msgstr ""
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
 msgstr ""
 
 msgid "A lot of buffers are being dropped."
@@ -820,8 +870,14 @@ msgstr ""
 msgid "Internal data flow problem."
 msgstr ""
 
-msgid "Internal data stream error."
-msgstr "Interna datumflu-eraro."
+msgid "Internal data flow error."
+msgstr ""
+
+msgid "Internal clock error."
+msgstr ""
+
+msgid "Failed to map buffer."
+msgstr ""
 
 msgid "Filter caps"
 msgstr ""
@@ -829,6 +885,26 @@ msgstr ""
 msgid ""
 "Restrict the possible allowed capabilities (NULL means ANY). Setting this "
 "property takes a reference to the supplied GstCaps object."
+msgstr ""
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr ""
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr ""
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr ""
+
+msgid "Error while writing to download file."
 msgstr ""
 
 msgid "No file name specified for writing."
@@ -854,10 +930,6 @@ msgid "No file name specified for reading."
 msgstr ""
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr ""
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr ""
 
@@ -870,16 +942,6 @@ msgid "File \"%s\" is a socket."
 msgstr ""
 
 msgid "Failed after iterations as requested."
-msgstr ""
-
-msgid "No Temp directory specified."
-msgstr ""
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr ""
-
-msgid "Error while writing to download file."
 msgstr ""
 
 msgid "caps"
@@ -897,6 +959,9 @@ msgstr ""
 msgid "force caps without doing a typefind"
 msgstr ""
 
+msgid "Stream doesn't contain enough data."
+msgstr ""
+
 msgid "Stream contains no data."
 msgstr ""
 
@@ -908,6 +973,9 @@ msgstr "legeble"
 
 msgid "writable"
 msgstr "skribeble"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr "regeble"
@@ -1050,6 +1118,9 @@ msgstr "AVERTO: de elemento %s: %s\n"
 msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr ""
 
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+
 msgid "buffering..."
 msgstr "bufrado..."
 
@@ -1069,9 +1140,17 @@ msgstr ""
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr ""
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "neniu elemento \"%s\""
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "AVERTO: de elemento %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr ""
@@ -1088,11 +1167,13 @@ msgstr ""
 msgid "Output messages"
 msgstr ""
 
-msgid "Do not output status information of TYPE"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
 msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TIPO1,TIPO2,..."
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr ""
@@ -1170,6 +1251,12 @@ msgstr ""
 
 msgid "Freeing pipeline ...\n"
 msgstr ""
+
+#~ msgid "Internal data stream error."
+#~ msgstr "Interna datumflu-eraro."
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "TIPO1,TIPO2,..."
 
 #~ msgid "FILE"
 #~ msgstr "DOSIERO"

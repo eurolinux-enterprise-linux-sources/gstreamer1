@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_CONTROL_BINDING_H__
@@ -46,6 +46,7 @@ G_BEGIN_DECLS
 
 typedef struct _GstControlBinding GstControlBinding;
 typedef struct _GstControlBindingClass GstControlBindingClass;
+typedef struct _GstControlBindingPrivate GstControlBindingPrivate;
 
 /* FIXME(2.0): remove, this is unused */
 typedef void (* GstControlBindingConvert) (GstControlBinding *binding, gdouble src_value, GValue *dest_value);
@@ -59,22 +60,36 @@ typedef void (* GstControlBindingConvert) (GstControlBinding *binding, gdouble s
  */
 struct _GstControlBinding {
   GstObject parent;
-  
+
   /*< public >*/
   gchar *name;
   GParamSpec *pspec;
 
   /*< private >*/
+#ifndef GST_DISABLE_DEPRECATED
   GstObject *object;            /* GstObject owning the property
                                  * (== parent when bound) */
+#else
+  gpointer __object;
+#endif
   gboolean disabled;
 
-  gpointer _gst_reserved[GST_PADDING];
+  union {
+    struct {
+      GstControlBindingPrivate *priv;
+    } abi;
+    gpointer _gst_reserved[GST_PADDING];
+  } ABI;
 };
 
 /**
  * GstControlBindingClass:
  * @parent_class: Parent class
+ * @sync_values: implementation for updating the target values
+ * @get_value: implementation to fetch a single control-value
+ * @get_value_array: implementation to fetch a series of control-values
+ * @get_g_value_array: implementation to fetch a series of control-values
+ *                     as g_values
  *
  * The class structure of #GstControlBinding.
  */
@@ -83,7 +98,7 @@ struct _GstControlBindingClass
 {
   GstObjectClass parent_class;
 
-  /* virtual methods */
+  /*< public >*/
   gboolean (* sync_values) (GstControlBinding *binding, GstObject *object, GstClockTime timestamp, GstClockTime last_sync);
   GValue * (* get_value) (GstControlBinding *binding, GstClockTime timestamp);
   gboolean (* get_value_array) (GstControlBinding *binding, GstClockTime timestamp,GstClockTime interval, guint n_values, gpointer values);
@@ -110,6 +125,10 @@ gboolean            gst_control_binding_get_g_value_array  (GstControlBinding *b
 
 void                gst_control_binding_set_disabled       (GstControlBinding * binding, gboolean disabled);
 gboolean            gst_control_binding_is_disabled        (GstControlBinding * binding);
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstControlBinding, gst_object_unref)
+#endif
+
 G_END_DECLS
 
 #endif /* __GST_CONTROL_BINDING_H__ */

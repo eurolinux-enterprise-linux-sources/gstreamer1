@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 /**
@@ -42,8 +42,6 @@
  *
  * See #GstBuffer for how the metadata can be added, retrieved and removed from
  * buffers.
- *
- * Last reviewed on 2012-03-28 (0.11.3)
  */
 #include "gst_private.h"
 
@@ -98,6 +96,10 @@ gst_meta_api_type_register (const gchar * api, const gchar ** tags)
           GINT_TO_POINTER (TRUE));
     }
   }
+
+  g_type_set_qdata (type, g_quark_from_string ("tags"),
+      g_strdupv ((gchar **) tags));
+
   return type;
 }
 
@@ -120,13 +122,35 @@ gst_meta_api_type_has_tag (GType api, GQuark tag)
 }
 
 /**
+ * gst_meta_api_type_get_tags:
+ * @api: an API
+ *
+ * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): an array of tags as strings.
+ *
+ * Since: 1.2
+ */
+const gchar *const *
+gst_meta_api_type_get_tags (GType api)
+{
+  const gchar **tags;
+  g_return_val_if_fail (api != 0, FALSE);
+
+  tags = g_type_get_qdata (api, g_quark_from_string ("tags"));
+
+  if (!tags[0])
+    return NULL;
+
+  return (const gchar * const *) tags;
+}
+
+/**
  * gst_meta_register:
  * @api: the type of the #GstMeta API
  * @impl: the name of the #GstMeta implementation
  * @size: the size of the #GstMeta structure
- * @init_func: (scope async) a #GstMetaInitFunction
- * @free_func: (scope async) a #GstMetaFreeFunction
- * @transform_func: (scope async) a #GstMetaTransformFunction
+ * @init_func: (scope async): a #GstMetaInitFunction
+ * @free_func: (scope async): a #GstMetaFreeFunction
+ * @transform_func: (scope async): a #GstMetaTransformFunction
  *
  * Register a new #GstMeta implementation.
  *
@@ -147,6 +171,10 @@ gst_meta_register (GType api, const gchar * impl, gsize size,
   g_return_val_if_fail (api != 0, NULL);
   g_return_val_if_fail (impl != NULL, NULL);
   g_return_val_if_fail (size != 0, NULL);
+
+  if (init_func == NULL)
+    g_critical ("Registering meta implementation '%s' without init function",
+        impl);
 
   /* first try to register the implementation name. It's possible
    * that this fails because it was already registered. Don't warn,
@@ -181,8 +209,8 @@ gst_meta_register (GType api, const gchar * impl, gsize size,
  * Lookup a previously registered meta info structure by its implementation name
  * @impl.
  *
- * Returns: (transfer none): a #GstMetaInfo with @impl, or #NULL when no such
- * metainfo exists.
+ * Returns: (transfer none) (nullable): a #GstMetaInfo with @impl, or
+ * %NULL when no such metainfo exists.
  */
 const GstMetaInfo *
 gst_meta_get_info (const gchar * impl)

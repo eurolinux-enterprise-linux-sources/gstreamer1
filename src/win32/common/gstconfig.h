@@ -16,8 +16,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 /**
  * SECTION:gstconfig
@@ -32,7 +32,7 @@
  * If a subsystem is disabled, most of this changes are done in an API
  * compatible way, so you don't need to adapt your code in most cases. It is
  * never done in an ABI compatible way though. So if you want to disable a
- * suybsystem, you have to rebuild all programs depending on GStreamer, too.
+ * subsystem, you have to rebuild all programs depending on GStreamer, too.
  *
  * If a subsystem is disabled in GStreamer, a value is defined in
  * &lt;gst/gst.h&gt;. You can check this if you do subsystem-specific stuff.
@@ -56,8 +56,6 @@
 #define GST_DISABLE_GST_DEBUG 1
 #define GST_DISABLE_LOADSAVE 1
 #define GST_DISABLE_PARSE 1
-#define GST_DISABLE_TRACE 1
-#define GST_DISABLE_ALLOC_TRACE 1
 #define GST_DISABLE_REGISTRY 1
 #define GST_DISABLE_PLUGIN 1
 #define GST_HAVE_GLIB_2_8 1
@@ -77,16 +75,7 @@
 /* #undef GST_DISABLE_GST_DEBUG */
 
 /* DOES NOT WORK */
-/* #undef GST_DISABLE_LOADSAVE */
-
-/* DOES NOT WORK */
 /* #undef GST_DISABLE_PARSE */
-
-/* DOES NOT WORK */
-/* #undef GST_DISABLE_TRACE */
-
-/* DOES NOT WORK */
-/* #undef GST_DISABLE_ALLOC_TRACE */
 
 /* DOES NOT WORK */
 /* #undef GST_DISABLE_REGISTRY */
@@ -124,14 +113,6 @@
 /* whether or not we are using glib 2.8 api, e.g. atomic gobject
    refcounting */
 #define GST_HAVE_GLIB_2_8 1
-
-/***** Deal with XML stuff, we have to handle both loadsave and registry *****/
-
-#if (! (defined(GST_DISABLE_LOADSAVE) && defined(GST_DISABLE_REGISTRY)) )
-# include <libxml/parser.h>
-#else
-# define GST_DISABLE_LOADSAVE_REGISTRY
-#endif
 
 /**
  * GST_EXPORT:

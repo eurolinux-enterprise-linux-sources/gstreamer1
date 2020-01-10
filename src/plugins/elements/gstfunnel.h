@@ -55,7 +55,8 @@ struct _GstFunnel {
   /*< private >*/
   GstPad         *srcpad;
 
-  gboolean has_segment;
+  GstPad *last_sinkpad;
+  gboolean forward_sticky_events;
 };
 
 struct _GstFunnelClass {

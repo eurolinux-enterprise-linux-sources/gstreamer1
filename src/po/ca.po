@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gstreamer 0.10.30.3\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
 "PO-Revision-Date: 2010-11-04 19:41+0100\n"
 "Last-Translator: Jordi Mallach <jordi@sindominio.net>\n"
 "Language-Team: Catalan <ca@dodds.net>\n"
@@ -26,8 +26,9 @@ msgstr "Fes fatals tots els avisos"
 msgid "Print available debug categories and exit"
 msgstr "Imprimeix les categories de depuració disponibles i surt"
 
+#, fuzzy
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
 "Nivell de depuració per defecte des de 1 (només errors) a 5 (tot) o 0 per a "
 "cap sortida"
@@ -48,6 +49,11 @@ msgstr "LLISTA"
 
 msgid "Disable colored debugging output"
 msgstr "Inhabilita la sortida de depuració colorejada"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
 
 msgid "Disable debugging"
 msgstr "Inhabilita la depuració"
@@ -201,6 +207,10 @@ msgstr "No s'ha pogut obtenir/establir els paràmetres des del/al recurs."
 msgid "No space left on the resource."
 msgstr "No resta espai al recurs."
 
+#, fuzzy
+msgid "Not authorized to access resource."
+msgstr "No resta espai al recurs."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer ha trobat un error general de flux."
 
@@ -254,6 +264,10 @@ msgstr ""
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "El rellotge seleccionat no es pot emprar al conducte."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr ""
 
 msgid "title"
 msgstr "títol"
@@ -446,6 +460,12 @@ msgstr "compositor"
 
 msgid "person(s) who composed the recording"
 msgstr "persones que composaren la gravació"
+
+msgid "conductor"
+msgstr ""
+
+msgid "conductor/performer refinement"
+msgstr ""
 
 msgid "duration"
 msgstr "durada"
@@ -796,8 +816,40 @@ msgstr "orientació de la imatge"
 msgid "How the image should be rotated or flipped before display"
 msgstr "Com s'hauria de rotar o girar la imatge abans de mostrar-la"
 
+msgid "publisher"
+msgstr ""
+
+msgid "Name of the label or publisher"
+msgstr ""
+
+msgid "interpreted-by"
+msgstr ""
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr ""
+
+msgid "midi-base-note"
+msgstr ""
+
+msgid "Midi note number of the audio track."
+msgstr ""
+
+msgid "private-data"
+msgstr ""
+
+msgid "Private data"
+msgstr ""
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr ""
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr ""
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -812,12 +864,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "el binari especificat «%s» és buit, no es permet"
+msgid "link has no source [sink=%s@%p]"
+msgstr ""
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "el binari «%s» no existeix, es descarta"
+msgid "link has no sink [source=%s@%p]"
+msgstr ""
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -826,6 +878,9 @@ msgstr "no hi ha cap propietat «%s» en l'element «%s»"
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "no s'ha pogut establir la propietat «%s» en l'element «%s» a «%s»"
+
+msgid "Delayed linking failed."
+msgstr ""
 
 #, c-format
 msgid "could not link %s to %s"
@@ -836,43 +891,38 @@ msgid "no element \"%s\""
 msgstr "no hi ha cap element «%s»"
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr ""
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "no s'han pogut analitzar les capacitats «%s»"
-
-msgid "link without source element"
-msgstr "l'enllaç no té un element font"
-
-msgid "link without sink element"
-msgstr "l'enllaç no té un element sortida"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "no hi ha cap element font per a l'URI «%s»"
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "no hi ha cap element el qual enllaçar a l'URI «%s»"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "no hi ha cap element de sortida per a l'URI «%s»"
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "No s'ha pogut enllaçar l'element de sortida per a l'URI «%s»"
+msgid "no source element for URI \"%s\""
+msgstr "no hi ha cap element font per a l'URI «%s»"
+
+msgid "syntax error"
+msgstr ""
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "el binari especificat «%s» és buit, no es permet"
+
+#, fuzzy, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "el binari «%s» no existeix, es descarta"
 
 msgid "empty pipeline not allowed"
 msgstr "no es permet un conducte buit"
-
-msgid "Internal clock error."
-msgstr "S'ha produït un error intern del rellotge."
-
-#, fuzzy
-msgid "Failed to map buffer."
-msgstr "No s'ha pogut codificar la imatge."
-
-msgid "Internal data flow error."
-msgstr "S'ha produït un error intern de flux de dades."
 
 msgid "A lot of buffers are being dropped."
 msgstr "S'estan descartant moltes memòries intermèdies."
@@ -880,8 +930,15 @@ msgstr "S'estan descartant moltes memòries intermèdies."
 msgid "Internal data flow problem."
 msgstr "Hi ha un problema intern de flux de dades."
 
-msgid "Internal data stream error."
+msgid "Internal data flow error."
 msgstr "S'ha produït un error intern de flux de dades."
+
+msgid "Internal clock error."
+msgstr "S'ha produït un error intern del rellotge."
+
+#, fuzzy
+msgid "Failed to map buffer."
+msgstr "No s'ha pogut codificar la imatge."
 
 msgid "Filter caps"
 msgstr "Filtra les capacitats"
@@ -892,6 +949,26 @@ msgid ""
 msgstr ""
 "Restringeix les capacitats que es poden permetre (NUL vol dir QUALSEVOL). "
 "Establir aquesta propietat pren una referència a l'objecte GstCaps proveït."
+
+msgid "Caps Change Mode"
+msgstr ""
+
+msgid "Filter caps change behaviour"
+msgstr ""
+
+msgid "No Temp directory specified."
+msgstr "No s'ha especificat un directori temporal."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "No s'ha pogut crear el fitxer temporal «%s»."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "No s'ha pogut obrir el fitxer «%s» per a la lectura."
+
+msgid "Error while writing to download file."
+msgstr "S'ha produït un error en escriure al fitxer de baixada."
 
 msgid "No file name specified for writing."
 msgstr "No s'ha especificat cap nom de fitxer per a l'escriptura."
@@ -916,10 +993,6 @@ msgid "No file name specified for reading."
 msgstr "No s'ha especificat cap fitxer per a llegir."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "No s'ha pogut obrir el fitxer «%s» per a la lectura."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "No s'ha pogut obtenir informació sobre «%s»."
 
@@ -933,16 +1006,6 @@ msgstr "El fitxer «%s» és un sòcol."
 
 msgid "Failed after iterations as requested."
 msgstr "Ha fallat després de les iteracions com s'ha demanat."
-
-msgid "No Temp directory specified."
-msgstr "No s'ha especificat un directori temporal."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "No s'ha pogut crear el fitxer temporal «%s»."
-
-msgid "Error while writing to download file."
-msgstr "S'ha produït un error en escriure al fitxer de baixada."
 
 msgid "caps"
 msgstr "capacitats"
@@ -959,6 +1022,10 @@ msgstr "força les capacitats"
 msgid "force caps without doing a typefind"
 msgstr "força les capacitats sense fer un «typefind»"
 
+#, fuzzy
+msgid "Stream doesn't contain enough data."
+msgstr "El flux no conté dades."
+
 msgid "Stream contains no data."
 msgstr "El flux no conté dades."
 
@@ -970,6 +1037,9 @@ msgstr "llegible"
 
 msgid "writable"
 msgstr "escrivible"
+
+msgid "deprecated"
+msgstr ""
 
 msgid "controllable"
 msgstr "controlable"
@@ -1119,6 +1189,11 @@ msgid "Prerolled, waiting for buffering to finish...\n"
 msgstr ""
 "S'ha preparat, s'està esperant a que s'òmpliga la memòria intermèdial…\n"
 
+#, fuzzy
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+"S'ha preparat, s'està esperant a que s'òmpliga la memòria intermèdial…\n"
+
 msgid "buffering..."
 msgstr "s'està omplint la memòria intermèdia…"
 
@@ -1141,9 +1216,17 @@ msgstr "S'està establint l'estat a %s a petició de %s…\n"
 msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Interrupció: S'està aturant el conducte…\n"
 
+#, c-format
+msgid "Progress: (%s) %s\n"
+msgstr ""
+
 #, fuzzy, c-format
 msgid "Missing element: %s\n"
 msgstr "no hi ha cap element «%s»"
+
+#, fuzzy, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "AVÍS: des de l'element %s: %s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Mostra els marcadors (també coneguts com metadades)"
@@ -1160,11 +1243,13 @@ msgstr "No mostres informació del progrés"
 msgid "Output messages"
 msgstr "Missatges de sortida"
 
-msgid "Do not output status information of TYPE"
-msgstr "No mostres informació d'estat de TIPUS"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
 
-msgid "TYPE1,TYPE2,..."
-msgstr "TIPUS1,TIPUS2,…"
+msgid "PROPERTY-NAME"
+msgstr ""
 
 msgid "Do not install a fault handler"
 msgstr "No instal·les un gestor de fallades"
@@ -1248,6 +1333,27 @@ msgstr "S'està establint el conducte a NUL…\n"
 
 msgid "Freeing pipeline ...\n"
 msgstr "S'està alliberant el conducte…\n"
+
+#~ msgid "Internal data stream error."
+#~ msgstr "S'ha produït un error intern de flux de dades."
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "No mostres informació d'estat de TIPUS"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "TIPUS1,TIPUS2,…"
+
+#~ msgid "link without source element"
+#~ msgstr "l'enllaç no té un element font"
+
+#~ msgid "link without sink element"
+#~ msgstr "l'enllaç no té un element sortida"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "no hi ha cap element el qual enllaçar a l'URI «%s»"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "No s'ha pogut enllaçar l'element de sortida per a l'URI «%s»"
 
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr "Imprimeix una traça d'alloc (si s'ha habilitat al compilar)"

@@ -3,13 +3,13 @@
 # This file is distributed under the same license as the gstreamer package.
 #
 # Maxim V. Dziumanenko <dziumanenko@gmail.com>, 2004-2007.
-# Yuri Chornoivan <yurchor@ukr.net>, 2011, 2012.
+# Yuri Chornoivan <yurchor@ukr.net>, 2011, 2012, 2013, 2014, 2015, 2016.
 msgid ""
 msgstr ""
-"Project-Id-Version: gstreamer 1.0.3\n"
+"Project-Id-Version: gstreamer 1.7.90\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/\n"
-"POT-Creation-Date: 2013-04-26 12:08+0200\n"
-"PO-Revision-Date: 2012-11-28 20:11+0200\n"
+"POT-Creation-Date: 2017-02-23 15:12+0200\n"
+"PO-Revision-Date: 2016-03-02 22:00+0200\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <translation-team-uk@lists.sourceforge.net>\n"
 "Language: uk\n"
@@ -30,9 +30,9 @@ msgid "Print available debug categories and exit"
 msgstr "Вивести наявні категорії діагностики і завершити роботу"
 
 msgid ""
-"Default debug level from 1 (only error) to 5 (anything) or 0 for no output"
+"Default debug level from 1 (only error) to 9 (anything) or 0 for no output"
 msgstr ""
-"Типовий рівень діагностики від 1 (лише помилки) до 5 (усе), або 0 - без "
+"Типовий рівень діагностики від 1 (лише помилки) до 9 (усе), або 0 — без "
 "діагностики"
 
 msgid "LEVEL"
@@ -50,6 +50,13 @@ msgstr "СПИСОК"
 
 msgid "Disable colored debugging output"
 msgstr "Вимкнути оформлення кольором діагностичних повідомлень"
+
+msgid ""
+"Changes coloring mode of the debug log. Possible modes: off, on, disable, "
+"auto, unix"
+msgstr ""
+"Змінити режим розфарбовування повідомлень діагностичного журналу. Можливі "
+"режими: off, on, disable, auto, unix"
 
 msgid "Disable debugging"
 msgstr "Вимкнути діагностику"
@@ -196,6 +203,9 @@ msgstr ""
 msgid "No space left on the resource."
 msgstr "На ресурсі не залишилось місця."
 
+msgid "Not authorized to access resource."
+msgstr "Не уповноважено на доступ до ресурсу."
+
 msgid "GStreamer encountered a general stream error."
 msgstr "GStreamer перехопив загальну помилку потоку."
 
@@ -247,6 +257,10 @@ msgstr "Немає стандартного повідомлення про по
 
 msgid "Selected clock cannot be used in pipeline."
 msgstr "Обраний годинник не може використовуватись у конвеєрі."
+
+#, c-format
+msgid "Error writing registry cache to %s: %s"
+msgstr "Помилка при записі кешу реєстру у %s: %s"
 
 msgid "title"
 msgstr "назва"
@@ -438,6 +452,12 @@ msgstr "композитор"
 
 msgid "person(s) who composed the recording"
 msgstr "особа чи особи, якими було створено музику запису"
+
+msgid "conductor"
+msgstr "диригент"
+
+msgid "conductor/performer refinement"
+msgstr "диригент або покращувач виконання"
 
 msgid "duration"
 msgstr "тривалість"
@@ -784,8 +804,40 @@ msgstr "орієнтація зображення"
 msgid "How the image should be rotated or flipped before display"
 msgstr "Визначає обертання та віддзеркалення зображення перед показом"
 
+msgid "publisher"
+msgstr "поширювач"
+
+msgid "Name of the label or publisher"
+msgstr "Назва лейбла або поширювача"
+
+msgid "interpreted-by"
+msgstr "інтерпретація"
+
+msgid "Information about the people behind a remix and similar interpretations"
+msgstr "Дані щодо тих, ким було виконано ремікс або подібну інтерпретацію"
+
+msgid "midi-base-note"
+msgstr "базова-нота-midi"
+
+msgid "Midi note number of the audio track."
+msgstr "Номер ноти MIDI звукової доріжки."
+
+msgid "private-data"
+msgstr "конфіденційні-дані"
+
+msgid "Private data"
+msgstr "Конфіденційні дані"
+
 msgid ", "
 msgstr ", "
+
+#, c-format
+msgid "No URI handler for the %s protocol found"
+msgstr "Не знайдено обробника адрес для протоколу %s"
+
+#, c-format
+msgid "URI scheme '%s' not supported"
+msgstr "Підтримки схеми адреси «%s» не передбачено"
 
 #, c-format
 msgid "ERROR: from element %s: %s\n"
@@ -800,12 +852,12 @@ msgstr ""
 "%s\n"
 
 #, c-format
-msgid "specified empty bin \"%s\", not allowed"
-msgstr "вказано порожній контейнер «%s», не допускається"
+msgid "link has no source [sink=%s@%p]"
+msgstr "у посилання немає джерела [приймач=%s@%p]"
 
 #, c-format
-msgid "no bin \"%s\", skipping"
-msgstr "немає контейнера «%s», пропущено"
+msgid "link has no sink [source=%s@%p]"
+msgstr "у посилання немає приймача [джерело=%s@%p]"
 
 #, c-format
 msgid "no property \"%s\" in element \"%s\""
@@ -814,6 +866,9 @@ msgstr "немає властивості «%s» у елементі «%s»"
 #, c-format
 msgid "could not set property \"%s\" in element \"%s\" to \"%s\""
 msgstr "не вдалося встановити властивість «%s» у елементі «%s» у значення «%s»"
+
+msgid "Delayed linking failed."
+msgstr "Спроба відкладеного компонування зазнала невдачі."
 
 #, c-format
 msgid "could not link %s to %s"
@@ -824,42 +879,38 @@ msgid "no element \"%s\""
 msgstr "немає елемента «%s»"
 
 #, c-format
+msgid "unexpected reference \"%s\" - ignoring"
+msgstr "неочікуване посилання «%s» — ігноруємо"
+
+#, c-format
+msgid "unexpected pad-reference \"%s\" - ignoring"
+msgstr "неочікуване посилання-підкладка «%s» — ігноруємо"
+
+#, c-format
 msgid "could not parse caps \"%s\""
 msgstr "не вдалося розібрати можливості «%s»"
-
-msgid "link without source element"
-msgstr "зв'язок без елемента-джерела"
-
-msgid "link without sink element"
-msgstr "зв'язок без елемента-споживача"
-
-#, c-format
-msgid "no source element for URI \"%s\""
-msgstr "відсутній елемент-джерело для URI «%s»"
-
-#, c-format
-msgid "no element to link URI \"%s\" to"
-msgstr "немає елемента для зв'язку URI «%s» до"
 
 #, c-format
 msgid "no sink element for URI \"%s\""
 msgstr "немає елемента-споживача для URI «%s»"
 
 #, c-format
-msgid "could not link sink element for URI \"%s\""
-msgstr "не вдалося прив'язати елемент-споживач для URI «%s»"
+msgid "no source element for URI \"%s\""
+msgstr "відсутній елемент-джерело для URI «%s»"
+
+msgid "syntax error"
+msgstr "синтаксична помилка"
+
+#, c-format
+msgid "specified empty bin \"%s\", not allowed"
+msgstr "вказано порожній контейнер «%s», не допускається"
+
+#, c-format
+msgid "no bin \"%s\", unpacking elements"
+msgstr "немає фрагмента «%s», розпаковуємо елементи"
 
 msgid "empty pipeline not allowed"
 msgstr "не можна використовувати порожній канал"
-
-msgid "Internal clock error."
-msgstr "Помилка внутрішньої синхронізації."
-
-msgid "Failed to map buffer."
-msgstr ""
-
-msgid "Internal data flow error."
-msgstr "Помилка внутрішнього перенесення даних."
 
 msgid "A lot of buffers are being dropped."
 msgstr "Викинуто багато буферів."
@@ -867,8 +918,14 @@ msgstr "Викинуто багато буферів."
 msgid "Internal data flow problem."
 msgstr "Помилка внутрішнього перенесення даних."
 
-msgid "Internal data stream error."
-msgstr "Помилка внутрішнього потоку даних."
+msgid "Internal data flow error."
+msgstr "Помилка внутрішнього перенесення даних."
+
+msgid "Internal clock error."
+msgstr "Помилка внутрішньої синхронізації."
+
+msgid "Failed to map buffer."
+msgstr "Не вдалося отримати місце під буфер."
 
 msgid "Filter caps"
 msgstr "Фільтр можливостей"
@@ -879,6 +936,26 @@ msgid ""
 msgstr ""
 "Обмежити допустимі можливості (NULL означає ANY). Встановлення цієї "
 "властивості призводить до посилання на поставлений об'єкт GstCaps."
+
+msgid "Caps Change Mode"
+msgstr "Режим зміни можливостей"
+
+msgid "Filter caps change behaviour"
+msgstr "Зміна поведінки можливостей фільтрування"
+
+msgid "No Temp directory specified."
+msgstr "Не вказано каталог тимчасових даних."
+
+#, c-format
+msgid "Could not create temp file \"%s\"."
+msgstr "Не вдалося створити тимчасовий файл даних «%s»."
+
+#, c-format
+msgid "Could not open file \"%s\" for reading."
+msgstr "Не вдалося відкрити файл «%s» для читання."
+
+msgid "Error while writing to download file."
+msgstr "Помилка під час запису до файла отриманих даних."
 
 msgid "No file name specified for writing."
 msgstr "Не вказано назви файла для запису."
@@ -903,10 +980,6 @@ msgid "No file name specified for reading."
 msgstr "Не вказано назву файла для читання."
 
 #, c-format
-msgid "Could not open file \"%s\" for reading."
-msgstr "Не вдалося відкрити файл «%s» для читання."
-
-#, c-format
 msgid "Could not get info on \"%s\"."
 msgstr "Не вдалося отримати інформацію щодо «%s»."
 
@@ -920,16 +993,6 @@ msgstr "Файл «%s» є сокетом."
 
 msgid "Failed after iterations as requested."
 msgstr "Помилка після ітерацій у запитаному порядку."
-
-msgid "No Temp directory specified."
-msgstr "Не вказано каталог тимчасових даних."
-
-#, c-format
-msgid "Could not create temp file \"%s\"."
-msgstr "Не вдалося створити тимчасовий файл даних «%s»."
-
-msgid "Error while writing to download file."
-msgstr "Помилка під час запису до файла отриманих даних."
 
 msgid "caps"
 msgstr "можливості"
@@ -946,6 +1009,9 @@ msgstr "примусово визначені можливості"
 msgid "force caps without doing a typefind"
 msgstr "примусово визначити можливості без виконання typefind"
 
+msgid "Stream doesn't contain enough data."
+msgstr "У потоці міститься недостатньо даних."
+
 msgid "Stream contains no data."
 msgstr "Потік не містить даних."
 
@@ -957,6 +1023,9 @@ msgstr "читання"
 
 msgid "writable"
 msgstr "запис"
+
+msgid "deprecated"
+msgstr "застаріле"
 
 msgid "controllable"
 msgstr "контроль"
@@ -1107,7 +1176,13 @@ msgid "WARNING: from element %s: %s\n"
 msgstr "ПОПЕРЕДЖЕННЯ: у елементі %s: %s\n"
 
 msgid "Prerolled, waiting for buffering to finish...\n"
-msgstr "Виконано preroll, для буферизації для завершення...\n"
+msgstr ""
+"Виконано випереджальне просування даних, очікуємо на завершення "
+"буферизації...\n"
+
+msgid "Prerolled, waiting for progress to finish...\n"
+msgstr ""
+"Виконано випереджальне просування даних, очікуємо на завершення обробки...\n"
 
 msgid "buffering..."
 msgstr "буферизація..."
@@ -1129,8 +1204,16 @@ msgid "Interrupt: Stopping pipeline ...\n"
 msgstr "Переривання: зупинка каналу...\n"
 
 #, c-format
+msgid "Progress: (%s) %s\n"
+msgstr "Поступ: (%s) %s\n"
+
+#, c-format
 msgid "Missing element: %s\n"
 msgstr "Не вистачає елемента: %s\n"
+
+#, c-format
+msgid "Got context from element '%s': %s=%s\n"
+msgstr "Отримано контекст з елемента «%s»: %s=%s\n"
 
 msgid "Output tags (also known as metadata)"
 msgstr "Вивести мітки (також відомі як метадані)"
@@ -1147,11 +1230,15 @@ msgstr "Не показувати даних щодо поступу"
 msgid "Output messages"
 msgstr "Виведено повідомлення"
 
-msgid "Do not output status information of TYPE"
-msgstr "Не виводити інформацію про стан типу ТИП"
+msgid ""
+"Do not output status information for the specified property if verbose "
+"output is enabled (can be used multiple times)"
+msgstr ""
+"Не виводити дані щодо стану для вказаної властивості, якщо увімкнено "
+"докладне виведення (можна використовувати декілька разів)"
 
-msgid "TYPE1,TYPE2,..."
-msgstr "ТИП1,ТИП2,..."
+msgid "PROPERTY-NAME"
+msgstr "НАЗВА-ВЛАСТИВОСТІ"
 
 msgid "Do not install a fault handler"
 msgstr "Не встановлювати обробник збоїв"
@@ -1183,16 +1270,17 @@ msgid "ERROR: Pipeline doesn't want to pause.\n"
 msgstr "ПОМИЛКА: канал не може призупинитись.\n"
 
 msgid "Pipeline is live and does not need PREROLL ...\n"
-msgstr "Конвеєр активний та не потребує PREROLL...\n"
+msgstr "Конвеєр активний та не потребує випереджального просування даних...\n"
 
 msgid "Pipeline is PREROLLING ...\n"
-msgstr "Канал у стані PREROLLING...\n"
+msgstr "Канал у стані приготування до випереджального просування даних...\n"
 
 msgid "ERROR: pipeline doesn't want to preroll.\n"
-msgstr "ПОМИЛКА: канал не може перейти у стан preroll.\n"
+msgstr ""
+"ПОМИЛКА: канал не може перейти у стан випереджального просування даних.\n"
 
 msgid "Pipeline is PREROLLED ...\n"
-msgstr "Канал у стані PREROLLED...\n"
+msgstr "Канал у стані випереджального просування даних...\n"
 
 msgid "Setting pipeline to PLAYING ...\n"
 msgstr "Канал переводиться у стан ВІДТВОРЕННЯ...\n"
@@ -1232,6 +1320,30 @@ msgstr "Канал переводиться у стан NULL ...\n"
 msgid "Freeing pipeline ...\n"
 msgstr "Спорожнення каналу...\n"
 
+#~ msgid "bin"
+#~ msgstr "фрагмент"
+
+#~ msgid "Internal data stream error."
+#~ msgstr "Помилка внутрішнього потоку даних."
+
+#~ msgid "Do not output status information of TYPE"
+#~ msgstr "Не виводити інформацію про стан типу ТИП"
+
+#~ msgid "TYPE1,TYPE2,..."
+#~ msgstr "ТИП1,ТИП2,..."
+
+#~ msgid "link without source element"
+#~ msgstr "зв'язок без елемента-джерела"
+
+#~ msgid "link without sink element"
+#~ msgstr "зв'язок без елемента-споживача"
+
+#~ msgid "no element to link URI \"%s\" to"
+#~ msgstr "немає елемента для зв'язку URI «%s» до"
+
+#~ msgid "could not link sink element for URI \"%s\""
+#~ msgstr "не вдалося прив'язати елемент-споживач для URI «%s»"
+
 #~ msgid "maximum"
 #~ msgstr "максимум"
 
@@ -1269,9 +1381,6 @@ msgstr "Спорожнення каналу...\n"
 #~ msgid "Print alloc trace (if enabled at compile time)"
 #~ msgstr ""
 #~ "Вивести трасування розподілу пам’яті (якщо ввімкнено при компіляції)"
-
-#~ msgid "Error writing registry cache to %s: %s"
-#~ msgstr "Помилка при записі кешу реєстру у %s: %s"
 
 #~ msgid "Error re-scanning registry %s: %s"
 #~ msgstr "Помилка при повторному скануванні реєстру модулів %s: %s"

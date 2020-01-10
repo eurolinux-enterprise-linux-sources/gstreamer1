@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef __GST_ERROR_H__
@@ -124,6 +124,9 @@ typedef enum
  * @GST_RESOURCE_ERROR_SYNC: used when a synchronize on the resource fails.
  * @GST_RESOURCE_ERROR_SETTINGS: used when settings can't be manipulated on.
  * @GST_RESOURCE_ERROR_NO_SPACE_LEFT: used when the resource has no space left.
+ * @GST_RESOURCE_ERROR_NOT_AUTHORIZED: used when the resource can't be opened
+ *                                     due to missing authorization.
+ *                                     (Since 1.2.4)
  * @GST_RESOURCE_ERROR_NUM_ERRORS: the number of resource error types.
  *
  * Resource errors are for any resource used by an element:
@@ -146,6 +149,7 @@ typedef enum
   GST_RESOURCE_ERROR_SYNC,
   GST_RESOURCE_ERROR_SETTINGS,
   GST_RESOURCE_ERROR_NO_SPACE_LEFT,
+  GST_RESOURCE_ERROR_NOT_AUTHORIZED,
   GST_RESOURCE_ERROR_NUM_ERRORS
 } GstResourceError;
 
