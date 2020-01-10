@@ -6,7 +6,7 @@
 
 Name:           gstreamer1
 Version:        1.0.7
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        GStreamer streaming media framework runtime
 
 License:        LGPLv2+
@@ -196,6 +196,12 @@ install -m0644 -D %{SOURCE2} $RPM_BUILD_ROOT%{_rpmconfigdir}/fileattrs/gstreamer
 
 
 %changelog
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 1.0.7-4
+- Mass rebuild 2014-01-24
+
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 1.0.7-3
+- Mass rebuild 2013-12-27
+
 * Mon Nov 18 2013 Adam Jackson <ajax@redhat.com> 1.0.7-2
 - Fix plugin scanner to not fork continuously (#1030853)
 
